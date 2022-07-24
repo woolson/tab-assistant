@@ -1,11 +1,13 @@
+import { ConfigProvider } from 'antd';
 import React from 'react';
 import { render } from 'react-dom';
-
 import Options from './Options';
-import './index.css';
+import zhCN from 'antd/es/locale/zh_CN';
 
 render(
-  <Options title={'Settings'} />,
+  <ConfigProvider locale={zhCN}>
+    <Options />
+  </ConfigProvider>,
   window.document.querySelector('#app-container')
 );
 

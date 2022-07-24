@@ -82,6 +82,7 @@ class TabAssistant {
     /** 根据分组进行创建分组，并移到分组里面 */
     for (const { title = '', color, tabIds, index } of this.getSortedGroups()) {
       if (tabIds.size) {
+        Logger.log('bootstrap insert', title, index)
         const groupId = await chrome.tabs.group({ tabIds: Array.from(tabIds) })
         this.groups[title].id = groupId
         await chrome.tabGroups.update(groupId, { title, color })
@@ -255,44 +256,49 @@ class TabAssistant {
     const groupTitle = this.getSortedGroups().find(o => o.title === group.title)?.title
     Logger.log('onGroupUpdated', group, groupTitle, JSON.parse(JSON.stringify(this.groups)))
     if (groupTitle) {
-      this.groups[groupTitle].collapsed = group.collapsed
-      this.groups[groupTitle].title = group.title
-      this.groups[groupTitle].color = group.color
-      this.groups[groupTitle].id = group.id
+      this.groups[groupTitle] = {
+        ...this.groups[groupTitle],
+        title: group.title,
+        color: group.color,
+        id: group.id,
+        collapsed: group.collapsed
+      }
     }
   }
 }
 
 /** 规则组 */
-const Rules: RuleItem[] = [
-  {
-    name: '谷歌Chrome开发者',
-    groupTitle: '谷歌开发者',
-    matchType: MatchTypeEnum.Domain,
-    matchContent: 'https://developer.chrome.com',
-    sortIndex: 1,
-  },
-  {
-    name: '知乎',
-    groupTitle: '知乎',
-    matchType: MatchTypeEnum.RegExp,
-    matchContent: 'zhihu.com',
-    sortIndex: 2,
-  },
-  {
-    name: 'GitHub',
-    groupTitle: 'GitHub',
-    groupColor: 'cyan',
-    matchType: MatchTypeEnum.RegExp,
-    matchContent: 'github.com',
-    sortIndex: 3,
-  }
-]
+// const Rules: RuleItem[] = [
+//   {
+//     name: '谷歌Chrome开发者',
+//     groupTitle: '谷歌开发者',
+//     matchType: MatchTypeEnum.Domain,
+//     matchContent: 'https://developer.chrome.com',
+//     sortIndex: 1,
+//   },
+//   {
+//     name: '知乎',
+//     groupTitle: '知乎',
+//     matchType: MatchTypeEnum.RegExp,
+//     matchContent: 'zhihu.com',
+//     sortIndex: 2,
+//   },
+//   {
+//     name: 'GitHub',
+//     groupTitle: 'GitHub',
+//     groupColor: 'cyan',
+//     matchType: MatchTypeEnum.RegExp,
+//     matchContent: 'github.com',
+//     sortIndex: 3,
+//   }
+// ]
 
-const DomainMap = {
-  'https://npmjs.com': 'npm'
-}
+async function main() {
+  const Rules = await chrome.storage.sync.get('TAB_ASSISTANT_RULES')
 
-/** 启动 */
-const assistant = new TabAssistant(Rules, DomainMap)
-Logger.log('assistant ins', assistant)
+  /** 启动 */
+  const assistant = new TabAssistant(Rules['TAB_ASSISTANT_RULES'] || [], {})
+  Logger.log('assistant ins', assistant)
+};
+
+main();

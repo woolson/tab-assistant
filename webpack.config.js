@@ -36,13 +36,13 @@ if (fileSystem.existsSync(secretsPath)) {
 }
 
 const ALL_ENTRY = {
-  newtab: path.join(__dirname, 'src', 'pages', 'Newtab', 'index.tsx'),
-  options: path.join(__dirname, 'src', 'pages', 'Options', 'index.tsx'),
+  // newtab: path.join(__dirname, 'src', 'pages', 'Newtab', 'index.tsx'),
+  // options: path.join(__dirname, 'src', 'pages', 'Options', 'index.tsx'),
   popup: path.join(__dirname, 'src', 'pages', 'Popup', 'index.tsx'),
   background: path.join(__dirname, 'src', 'pages', 'Background', 'index.ts'),
-  contentScript: path.join(__dirname, 'src', 'pages', 'Content', 'index.ts'),
-  devtools: path.join(__dirname, 'src', 'pages', 'Devtools', 'index.ts'),
-  panel: path.join(__dirname, 'src', 'pages', 'Panel', 'index.tsx'),
+  // contentScript: path.join(__dirname, 'src', 'pages', 'Content', 'index.ts'),
+  // devtools: path.join(__dirname, 'src', 'pages', 'Devtools', 'index.ts'),
+  // panel: path.join(__dirname, 'src', 'pages', 'Panel', 'index.tsx'),
 }
 
 var options = {
@@ -74,6 +74,9 @@ var options = {
             loader: 'less-loader',
             options: {
               sourceMap: true,
+              lessOptions: {
+                javascriptEnabled: true,
+              }
             },
           },
         ],
@@ -164,36 +167,36 @@ var options = {
         },
       ],
     }),
-    new HtmlWebpackPlugin({
-      template: path.join(__dirname, 'src', 'pages', 'Newtab', 'index.html'),
-      filename: 'newtab.html',
-      chunks: ['newtab'],
-      cache: false,
-    }),
-    new HtmlWebpackPlugin({
-      template: path.join(__dirname, 'src', 'pages', 'Options', 'index.html'),
-      filename: 'options.html',
-      chunks: ['options'],
-      cache: false,
-    }),
+    // new HtmlWebpackPlugin({
+    //   template: path.join(__dirname, 'src', 'pages', 'Newtab', 'index.html'),
+    //   filename: 'newtab.html',
+    //   chunks: ['newtab'],
+    //   cache: false,
+    // }),
+    // new HtmlWebpackPlugin({
+    //   template: path.join(__dirname, 'src', 'pages', 'Options', 'index.html'),
+    //   filename: 'options.html',
+    //   chunks: ['options'],
+    //   cache: false,
+    // }),
     new HtmlWebpackPlugin({
       template: path.join(__dirname, 'src', 'pages', 'Popup', 'index.html'),
       filename: 'popup.html',
       chunks: ['popup'],
       cache: false,
     }),
-    new HtmlWebpackPlugin({
-      template: path.join(__dirname, 'src', 'pages', 'Devtools', 'index.html'),
-      filename: 'devtools.html',
-      chunks: ['devtools'],
-      cache: false,
-    }),
-    new HtmlWebpackPlugin({
-      template: path.join(__dirname, 'src', 'pages', 'Panel', 'index.html'),
-      filename: 'panel.html',
-      chunks: ['panel'],
-      cache: false,
-    }),
+    // new HtmlWebpackPlugin({
+    //   template: path.join(__dirname, 'src', 'pages', 'Devtools', 'index.html'),
+    //   filename: 'devtools.html',
+    //   chunks: ['devtools'],
+    //   cache: false,
+    // }),
+    // new HtmlWebpackPlugin({
+    //   template: path.join(__dirname, 'src', 'pages', 'Panel', 'index.html'),
+    //   filename: 'panel.html',
+    //   chunks: ['panel'],
+    //   cache: false,
+    // }),
   ],
   infrastructureLogging: {
     level: 'info',
