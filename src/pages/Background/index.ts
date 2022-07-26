@@ -205,12 +205,12 @@ class TabAssistant {
    * 根据URL获取所在分组名称，默认使用域名
    */
   getGroupTitleByUrl(url: string) {
-    const { origin, host } = new URL(url)
+    const { host } = new URL(url)
 
     /** 匹配规则 */
     for (const rule of this.rules) {
       // 使用域名全匹配
-      if (rule.matchType === MatchTypeEnum.Domain && origin === rule.matchContent) {
+      if (rule.matchType === MatchTypeEnum.Domain && host === rule.matchContent) {
         return rule
         // 使用正则进行页面匹配
       } else if (rule.matchType === MatchTypeEnum.RegExp) {
@@ -220,7 +220,7 @@ class TabAssistant {
     }
     /** 按domain获取名称 */
     return {
-      groupTitle: this.domainMap[origin] || host,
+      groupTitle: this.domainMap[host] || host,
       groupColor: undefined,
       sortIndex: -1
     }

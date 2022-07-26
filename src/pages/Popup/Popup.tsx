@@ -1,13 +1,10 @@
 
 import React, { useEffect, useState } from 'react';
 import { Button, Form, Input, message, Modal, Popconfirm, Radio, Row, Select, Space, Table } from 'antd';
-import { MenuOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import { arrayMoveImmutable } from 'array-move';
-import type { SortableContainerProps, SortEnd } from 'react-sortable-hoc';
-import { SortableContainer, SortableElement, SortableHandle } from 'react-sortable-hoc';
 import { useForm } from 'antd/lib/form/Form';
-import 'antd/dist/antd.css';
+import { v4 as uuid } from 'uuid';
+import { EventNames } from '../../common/const';
 import 'antd/es/table/style/index';
 import 'antd/es/modal/style/index';
 import 'antd/es/form/style/index';
@@ -18,10 +15,10 @@ import 'antd/es/row/style/index';
 import 'antd/es/space/style/index';
 import 'antd/es/message/style/index';
 import './Popup.less';
-import { EventNames } from '../../common/const';
 
 const TAB_ASSISTANT_RULES = 'TAB_ASSISTANT_RULES'
 interface DataType {
+  ruleId: string
   name: string
   sortIndex: number
   groupTitle: string
@@ -41,18 +38,11 @@ const COLORS = [
   { value: 'cyan', label: '青色' }
 ]
 
-const DragHandle = SortableHandle(() =>
-  <MenuOutlined style={{ cursor: 'grab', color: '#999' }} />
-);
+function randomStr() {
+
+}
 
 const data: DataType[] = [];
-
-const SortableItem = SortableElement((props: React.HTMLAttributes<HTMLTableRowElement>) => (
-  <tr {...props} />
-));
-const SortableBody = SortableContainer((props: React.HTMLAttributes<HTMLTableSectionElement>) => (
-  <tbody {...props} />
-));
 
 const Popup: React.FC = () => {
   const [dataSource, setDataSource] = useState(data);
@@ -60,13 +50,13 @@ const Popup: React.FC = () => {
   const [form] = useForm()
 
   const columns: ColumnsType<DataType> = [
-    {
-      title: '拖动排序',
-      dataIndex: 'sortIndex',
-      width: 100,
-      className: 'drag-visible',
-      render: () => <DragHandle />,
-    },
+    // {
+    //   title: '排序',
+    //   dataIndex: 'sortIndex',
+    //   width: 50,
+    //   className: 'drag-visible',
+    //   render: () => <DragHandle />,
+    // },
     {
       title: '规则名称',
       dataIndex: 'name',
@@ -89,13 +79,18 @@ const Popup: React.FC = () => {
     },
     {
       title: '操作',
-      dataIndex: 'operation',
+      width: 100,
       render: (_, record) =>
-        dataSource.length >= 1 ? (
+        <Space>
+          <Button type="link" onClick={() => {
+            setEditData(record)
+            form.setFieldsValue(record)
+          }}>编辑</Button>
+
           <Popconfirm title="确认删除这个规则吗?" onConfirm={() => handleDelete(record.sortIndex)}>
             <Button type="link">删除</Button>
           </Popconfirm>
-        ) : null,
+        </Space>
     },
   ];
 
@@ -108,43 +103,41 @@ const Popup: React.FC = () => {
 
   useEffect(() => {
     chrome.storage.sync.get(TAB_ASSISTANT_RULES).then(res => {
-      setDataSource((res[TAB_ASSISTANT_RULES] || []).map((item: DataType, i: number) => ({ ...item, sortIndex: i })))
+      const rules: DataType[] = res[TAB_ASSISTANT_RULES] || []
+
+      const dataSource = rules.map((item: DataType, i: number) =>
+        ({ ...item, ruleId: item.ruleId || uuid(), sortIndex: i }))
+
+      setDataSource(dataSource)
+
+      if (rules.some((o: DataType) => !o.ruleId)) {
+        chrome.storage.sync.set({
+          [TAB_ASSISTANT_RULES]: dataSource
+        })
+      }
     })
   }, [])
 
-  const onSortEnd = ({ oldIndex, newIndex }: SortEnd) => {
-    if (oldIndex !== newIndex) {
-      const newData = arrayMoveImmutable(dataSource.slice(), oldIndex, newIndex).filter(
-        (el: DataType) => !!el,
-      );
-      console.log('Sorted items: ', newData);
-      setDataSource(newData);
-    }
-  };
-
-  const DraggableContainer = (props: SortableContainerProps) => (
-    <SortableBody
-      useDragHandle
-      disableAutoscroll
-      helperClass="row-dragging"
-      onSortEnd={onSortEnd}
-      {...props}
-    />
-  );
-
-  const DraggableBodyRow: React.FC<any> = ({ className, style, ...restProps }) => {
-    // function findIndex base on Table rowKey props and should always be a right array index
-    const index = dataSource.findIndex(x => x.sortIndex === restProps['data-row-key']);
-    return <SortableItem index={index} {...restProps} />;
-  };
-
   const onFormOk = async () => {
     await form.validateFields()
-    const data = form.getFieldsValue()
-    chrome.storage.sync.set({ [TAB_ASSISTANT_RULES]: [...dataSource, { ...data, sortIndex: dataSource.length }] })
+    const newDataSource = [...dataSource]
+    const data = Object.assign({
+      sortIndex: editData?.sortIndex ?? Math.max(...dataSource.map(o => o.sortIndex)) + 1,
+      ruleId: editData?.ruleId ?? uuid(),
+    }, form.getFieldsValue())
+
+    if (editData?.ruleId) {
+      const index = newDataSource.findIndex(o => o.ruleId === editData.ruleId)
+      newDataSource[index] = data
+    } else {
+      newDataSource.push(data)
+    }
+
+    chrome.storage.sync.set({ [TAB_ASSISTANT_RULES]: newDataSource })
       .then(() => {
-        setDataSource([...dataSource, data])
+        setDataSource(newDataSource)
         setEditData(undefined)
+        form.resetFields()
         reloadRules()
       })
   }
@@ -159,21 +152,16 @@ const Popup: React.FC = () => {
     <div className="container">
       <Row style={{ marginBottom: 16 }}>
         <Space>
-          <Button type="primary" onClick={() => setEditData({})}>添加规则</Button>
-          <Button type="primary" onClick={() => reloadRules()}>应用规则</Button>
+          <Button type="primary" size="middle" onClick={() => setEditData({})}>添加规则</Button>
+          <Button type="primary" size="middle" onClick={() => reloadRules()}>应用规则</Button>
         </Space>
       </Row>
       <Table
+        size="small"
         pagination={false}
         dataSource={dataSource}
         columns={columns}
         rowKey="index"
-        components={{
-          body: {
-            wrapper: DraggableContainer,
-            row: DraggableBodyRow,
-          },
-        }}
       />
       <Modal
         title="规则"
