@@ -10,6 +10,7 @@
  *    1.2 规则排序
  */
 
+import { EventNames } from "../../common/const"
 import { Logger } from "./helpers"
 import { MatchTypeEnum, NameMap, RuleItem, GroupColorEnum } from "./types"
 
@@ -302,3 +303,8 @@ async function main() {
 };
 
 main();
+
+chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
+  await main();
+  sendResponse(EventNames.ReloadSucc)
+})

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Tab Assistant",
-  "description": "A chrome extension from help you manage window tabs",
+  "description": "A chrome extension from help you manage window tabs.",
   "permissions": [
     "tabGroups",
     "storage",
@@ -20,7 +20,6 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "content.styles.css",
         "icon-128.png",
         "icon-34.png"
       ],

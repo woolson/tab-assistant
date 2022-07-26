@@ -1,12 +1,13 @@
 
 import React, { useEffect, useState } from 'react';
-import { Button, Form, Input, Modal, Popconfirm, Radio, Row, Select, Space, Table } from 'antd';
+import { Button, Form, Input, message, Modal, Popconfirm, Radio, Row, Select, Space, Table } from 'antd';
 import { MenuOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { arrayMoveImmutable } from 'array-move';
 import type { SortableContainerProps, SortEnd } from 'react-sortable-hoc';
 import { SortableContainer, SortableElement, SortableHandle } from 'react-sortable-hoc';
 import { useForm } from 'antd/lib/form/Form';
+import 'antd/dist/antd.css';
 import 'antd/es/table/style/index';
 import 'antd/es/modal/style/index';
 import 'antd/es/form/style/index';
@@ -15,7 +16,9 @@ import 'antd/es/radio/style/index';
 import 'antd/es/popover/style/index';
 import 'antd/es/row/style/index';
 import 'antd/es/space/style/index';
+import 'antd/es/message/style/index';
 import './Popup.less';
+import { EventNames } from '../../common/const';
 
 const TAB_ASSISTANT_RULES = 'TAB_ASSISTANT_RULES'
 interface DataType {
@@ -98,7 +101,9 @@ const Popup: React.FC = () => {
 
   const handleDelete = (index: number) => {
     const newData = dataSource.filter(item => item.sortIndex !== index);
-    chrome.storage.sync.set({ [TAB_ASSISTANT_RULES]: newData }).then(() => setDataSource(newData))
+    chrome.storage.sync.set({ [TAB_ASSISTANT_RULES]: newData })
+      .then(() => setDataSource(newData))
+      .then(() => reloadRules())
   };
 
   useEffect(() => {
@@ -140,15 +145,14 @@ const Popup: React.FC = () => {
       .then(() => {
         setDataSource([...dataSource, data])
         setEditData(undefined)
-        runRules()
+        reloadRules()
       })
   }
 
-  const runRules = () => {
-    var background = chrome.extension.getBackgroundPage()
-    console.log('background', background);
-
-    if (background && background.main) background.main()
+  const reloadRules = () => {
+    chrome.runtime.sendMessage(EventNames.ReloadRule, res => {
+      message.success('规则更新成功')
+    })
   }
 
   return (
@@ -156,7 +160,7 @@ const Popup: React.FC = () => {
       <Row style={{ marginBottom: 16 }}>
         <Space>
           <Button type="primary" onClick={() => setEditData({})}>添加规则</Button>
-          <Button type="primary" onClick={() => runRules()}>应用规则</Button>
+          <Button type="primary" onClick={() => reloadRules()}>应用规则</Button>
         </Space>
       </Row>
       <Table
