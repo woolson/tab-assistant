@@ -38,10 +38,6 @@ const COLORS = [
   { value: 'cyan', label: '青色' }
 ]
 
-function randomStr() {
-
-}
-
 const data: DataType[] = [];
 
 const Popup: React.FC = () => {

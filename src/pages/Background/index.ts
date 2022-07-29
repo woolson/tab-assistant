@@ -12,7 +12,7 @@
 
 import { EventNames } from "../../common/const"
 import { Logger } from "./helpers"
-import { MatchTypeEnum, NameMap, RuleItem, GroupColorEnum } from "./types"
+import { MatchTypeEnum, NameMap, RuleItem } from "./types"
 
 interface Groups {
   [key: string]: Partial<chrome.tabGroups.TabGroup> & { tabIds: Set<number>, index: number }
@@ -55,8 +55,9 @@ class TabAssistant {
 
   /** 主程序 */
   async bootstrap() {
+    const currentWindow = await chrome.windows.getCurrent()
     /** 当前已存在的分组 */
-    const existGroups = await chrome.tabGroups.query({})
+    const existGroups = await chrome.tabGroups.query({ windowId: currentWindow.id })
     existGroups.forEach(group => {
       const ruleGroup = this.groups[group.title as string]
       if (ruleGroup) {
@@ -81,11 +82,24 @@ class TabAssistant {
     }
 
     /** 根据分组进行创建分组，并移到分组里面 */
-    for (const { title = '', color, tabIds, index } of this.getSortedGroups()) {
+    for (const { title = '', color, tabIds, index, id } of this.getSortedGroups()) {
+      let groupId = id
       if (tabIds.size) {
         Logger.log('bootstrap insert', title, index)
-        const groupId = await chrome.tabs.group({ tabIds: Array.from(tabIds) })
-        this.groups[title].id = groupId
+        /**
+         * 获取Tab所属group
+         */
+
+        if (groupId) {
+          const tabs = (await Promise.all(Array.from(tabIds).map(tabId => chrome.tabs.get(tabId))))
+            .filter(tabInfo => tabInfo.groupId !== id)
+          if (tabs.length) {
+            chrome.tabs.group({ groupId, tabIds: Array.from(tabIds) })
+          }
+        } else {
+          groupId = await chrome.tabs.group({ tabIds: Array.from(tabIds) })
+          this.groups[title].id = groupId
+        }
         await chrome.tabGroups.update(groupId, { title, color })
         Logger.log('bootstrap index', title, this.getGroupIndex(index, title))
         await chrome.tabGroups.move(groupId, { index: this.getGroupIndex(index, title) })
@@ -227,7 +241,7 @@ class TabAssistant {
   }
 
   /**
-   * 当标签添加时进行移动
+   * 标签添加时进行移动
    */
   onTabAdded(tabId: number, changeInfo: chrome.tabs.TabChangeInfo) {
     if (changeInfo.url) {
@@ -236,6 +250,7 @@ class TabAssistant {
     }
   }
 
+  /** 标签移除时更新数据 */
   onTabRemoved(tabId: number, removeInfo: chrome.tabs.TabRemoveInfo) {
     for (const group of this.getSortedGroups()) {
       if (group.tabIds.has(tabId)) {
@@ -247,12 +262,14 @@ class TabAssistant {
     }
   }
 
+  /** 分组移除时更新数据 */
   onGroupRemoved(group: chrome.tabGroups.TabGroup) {
     const groupTitle = this.getSortedGroups().find(o => o.title === group.title)?.title
     Logger.log('onGroupRemove', group, groupTitle, JSON.parse(JSON.stringify(this.groups)))
     if (groupTitle) this.groups[groupTitle].id = undefined
   }
 
+  /** 分组更新时更新分组数据 */
   onGroupUpdated(group: chrome.tabGroups.TabGroup) {
     const groupTitle = this.getSortedGroups().find(o => o.title === group.title)?.title
     Logger.log('onGroupUpdated', group, groupTitle, JSON.parse(JSON.stringify(this.groups)))
@@ -295,10 +312,11 @@ class TabAssistant {
 // ]
 
 async function main() {
-  const Rules = await chrome.storage.sync.get('TAB_ASSISTANT_RULES')
+  const rules = await chrome.storage.sync
+    .get('TAB_ASSISTANT_RULES')
 
   /** 启动 */
-  const assistant = new TabAssistant(Rules['TAB_ASSISTANT_RULES'] || [], {})
+  const assistant = new TabAssistant(rules['TAB_ASSISTANT_RULES'] || [], {})
   Logger.log('assistant ins', assistant)
 };
 
