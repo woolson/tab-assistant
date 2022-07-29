@@ -1,12 +1,12 @@
 
 import React, { useEffect, useState } from 'react';
-import { Button, Form, Input, message, Modal, Popconfirm, Radio, Row, Select, Space, Table } from 'antd';
+import { Button, Form, Input, message, Drawer, Popconfirm, Radio, Row, Select, Space, Table } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useForm } from 'antd/lib/form/Form';
 import { v4 as uuid } from 'uuid';
 import { EventNames } from '../../common/const';
 import 'antd/es/table/style/index';
-import 'antd/es/modal/style/index';
+import 'antd/es/drawer/style/index';
 import 'antd/es/form/style/index';
 import 'antd/es/input/style/index';
 import 'antd/es/radio/style/index';
@@ -15,17 +15,9 @@ import 'antd/es/row/style/index';
 import 'antd/es/space/style/index';
 import 'antd/es/message/style/index';
 import './Popup.less';
+import { RuleItem } from '../Background/types';
 
 const TAB_ASSISTANT_RULES = 'TAB_ASSISTANT_RULES'
-interface DataType {
-  ruleId: string
-  name: string
-  sortIndex: number
-  groupTitle: string
-  groupColor: string
-  matchType: string
-  matchContent: string
-}
 
 const COLORS = [
   { value: 'grey', label: '灰色' },
@@ -38,14 +30,14 @@ const COLORS = [
   { value: 'cyan', label: '青色' }
 ]
 
-const data: DataType[] = [];
+const data: RuleItem[] = [];
 
 const Popup: React.FC = () => {
   const [dataSource, setDataSource] = useState(data);
-  const [editData, setEditData] = useState<Partial<DataType>>()
+  const [editData, setEditData] = useState<Partial<RuleItem>>()
   const [form] = useForm()
 
-  const columns: ColumnsType<DataType> = [
+  const columns: ColumnsType<RuleItem> = [
     // {
     //   title: '排序',
     //   dataIndex: 'sortIndex',
@@ -99,14 +91,14 @@ const Popup: React.FC = () => {
 
   useEffect(() => {
     chrome.storage.sync.get(TAB_ASSISTANT_RULES).then(res => {
-      const rules: DataType[] = res[TAB_ASSISTANT_RULES] || []
+      const rules: RuleItem[] = res[TAB_ASSISTANT_RULES] || []
 
-      const dataSource = rules.map((item: DataType, i: number) =>
-        ({ ...item, ruleId: item.ruleId || uuid(), sortIndex: i }))
+      const dataSource = rules.map((item: RuleItem, i: number) =>
+        ({ ...item, ruleId: item.ruleId || uuid(), priority: item.priority ?? 0, sortIndex: i }))
 
       setDataSource(dataSource)
 
-      if (rules.some((o: DataType) => !o.ruleId)) {
+      if (rules.some((o: RuleItem) => !o.ruleId || o.priority === void 0)) {
         chrome.storage.sync.set({
           [TAB_ASSISTANT_RULES]: dataSource
         })
@@ -148,8 +140,8 @@ const Popup: React.FC = () => {
     <div className="container">
       <Row style={{ marginBottom: 16 }}>
         <Space>
-          <Button type="primary" size="middle" onClick={() => setEditData({})}>添加规则</Button>
-          <Button type="primary" size="middle" onClick={() => reloadRules()}>应用规则</Button>
+          <Button type="primary" onClick={() => setEditData({})}>添加规则</Button>
+          <Button type="primary" onClick={() => reloadRules()}>应用规则</Button>
         </Space>
       </Row>
       <Table
@@ -159,33 +151,50 @@ const Popup: React.FC = () => {
         columns={columns}
         rowKey="index"
       />
-      <Modal
-        title="规则"
+      <Drawer
+        title={editData?.ruleId ? '编辑规则' : '新建规则'}
+        width={500}
         visible={!!editData}
-        onCancel={() => setEditData(undefined)}
-        onOk={() => onFormOk()}
+        onClose={() => setEditData(undefined)}
+        footer={
+          <Row justify="end">
+            <Space>
+              <Button onClick={() => setEditData(undefined)}>取消</Button>
+              <Button type="primary" onClick={() => onFormOk()}>确认</Button>
+            </Space>
+          </Row>
+        }
       >
         <Form form={form} labelCol={{ span: 5 }}>
-          <Form.Item label="规则名称" name="name" required rules={[{ required: true, message: "规则名称必填" }]}>
+          <Form.Item className="u-mb-15" label="规则名称" name="name" required rules={[{ required: true, message: "规则名称必填" }]}>
             <Input placeholder='请输入' allowClear />
           </Form.Item>
-          <Form.Item label="分组标题" name="groupTitle">
+          <Form.Item className="u-mb-15" label="分组标题" name="groupTitle">
             <Input placeholder='请输入' allowClear />
           </Form.Item>
-          <Form.Item label="分组颜色" name="groupColor">
+          <Form.Item className="u-mb-15" label="优先级" name="priority">
+            <Input type="number" step={1} min={0} defaultValue={0} />
+          </Form.Item>
+          <Form.Item className="u-mb-15" label="分组颜色" name="groupColor">
             <Select options={COLORS} />
           </Form.Item>
-          <Form.Item label="匹配模式" name="matchType" required rules={[{ required: true, message: "匹配模式必选" }]}>
+          <Form.Item className="u-mb-15" label="匹配模式" name="matchType" required rules={[{ required: true, message: "匹配模式必选" }]}>
             <Radio.Group>
               <Radio value={0}>按域名分组</Radio>
               <Radio value={1}>按正则匹配</Radio>
             </Radio.Group>
           </Form.Item>
-          <Form.Item label="匹配内容" name="matchContent" required rules={[{ required: true, message: "匹配内容必填" }]}>
+          <Form.Item
+            className="u-mb-15"
+            required
+            label="匹配内容"
+            name="matchContent"
+            style={{ marginBottom: 0 }}
+            rules={[{ required: true, message: "匹配内容必填" }]}>
             <Input placeholder='请输入' allowClear />
           </Form.Item>
         </Form>
-      </Modal>
+      </Drawer>
     </div>
   );
 };

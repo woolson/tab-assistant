@@ -61,7 +61,7 @@ class TabAssistant {
     existGroups.forEach(group => {
       const ruleGroup = this.groups[group.title as string]
       if (ruleGroup) {
-        this.groups[group.title as string] = Object.assign(this.groups[group.title as string], group)
+        this.groups[group.title as string] = Object.assign(this.groups[group.title as string], { id: group.id })
       } else {
         this.groups[group.title as string] = Object.assign({}, group, {
           tabIds: new Set<number>(),
@@ -163,7 +163,7 @@ class TabAssistant {
   async addTabToGroup(tabId: number, url: string, syncToBrowser = false) {
     const { groupTitle, groupColor, sortIndex } = this.getGroupTitleByUrl(url)
 
-    Logger.log('匹配到的存在的组1', groupTitle, JSON.parse(JSON.stringify(this.groups)))
+    Logger.log('匹配到的存在的组1', url, groupTitle, JSON.parse(JSON.stringify(this.groups)))
 
     const groupInfo = this.groups[groupTitle]
 
@@ -221,8 +221,12 @@ class TabAssistant {
   getGroupTitleByUrl(url: string) {
     const { host } = new URL(url)
 
+    const rules = this.rules.slice(0).sort((a, b) => b.priority - a.priority)
+
+    Logger.log('sorted rules', rules);
+
     /** 匹配规则 */
-    for (const rule of this.rules) {
+    for (const rule of rules) {
       // 使用域名全匹配
       if (rule.matchType === MatchTypeEnum.Domain && host === rule.matchContent) {
         return rule

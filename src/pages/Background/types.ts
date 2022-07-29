@@ -2,10 +2,14 @@ export type GroupColorEnum = chrome.tabGroups.ColorEnum
 
 /** 规则信息 */
 export interface RuleItem {
+  /** 规则Id */
+  ruleId: string
   /** 规则名称 */
   name: string
   /** 分组名称，默认和规则保持一致 */
   groupTitle: string
+  /** 分组优先级 */
+  priority: number
   /** 分组颜色 */
   groupColor?: GroupColorEnum
   /** 匹配模式 */
