@@ -193,10 +193,7 @@ const Rules: React.FC = () => {
             name="matchContent"
             style={{ marginBottom: 0 }}
             rules={[{ required: true, message: "匹配内容必填" }]}>
-            <Space style={{ width: '100%' }}>
-              <Input placeholder='请输入' allowClear />
-              <Button onClick={() => getCurrentTabUrl()}>当前页面链接</Button>
-            </Space>
+            <Input placeholder='请输入' allowClear />
           </Form.Item>
         </Form>
       </Drawer>
