@@ -1,23 +1,13 @@
 
-import React, { useEffect, useState } from 'react';
-import { Button, Form, Input, message, Drawer, Popconfirm, Radio, Row, Select, Space, Table } from 'antd';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Button, Form, Input, Drawer, Popconfirm, Radio, Row, Select, Space, Table, Divider } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useForm } from 'antd/lib/form/Form';
 import { v4 as uuid } from 'uuid';
-import { EventNames } from '../../common/const';
-import 'antd/es/table/style/index';
-import 'antd/es/drawer/style/index';
-import 'antd/es/form/style/index';
-import 'antd/es/input/style/index';
-import 'antd/es/radio/style/index';
-import 'antd/es/popover/style/index';
-import 'antd/es/row/style/index';
-import 'antd/es/space/style/index';
-import 'antd/es/message/style/index';
-import './Popup.less';
-import { RuleItem } from '../Background/types';
-
-const TAB_ASSISTANT_RULES = 'TAB_ASSISTANT_RULES'
+import { reloadConfig } from '@/common';
+import { StorageKeyEnum } from '@/common/const';
+import { RuleItem } from '@/pages/Background/types';
+import './style.less';
 
 const COLORS = [
   { value: 'grey', label: '灰色' },
@@ -32,66 +22,75 @@ const COLORS = [
 
 const data: RuleItem[] = [];
 
-const Popup: React.FC = () => {
+const Rules: React.FC = () => {
   const [dataSource, setDataSource] = useState(data);
   const [editData, setEditData] = useState<Partial<RuleItem>>()
-  const [form] = useForm()
+  const [form] = useForm<RuleItem>()
 
   const columns: ColumnsType<RuleItem> = [
-    // {
-    //   title: '排序',
-    //   dataIndex: 'sortIndex',
-    //   width: 50,
-    //   className: 'drag-visible',
-    //   render: () => <DragHandle />,
-    // },
     {
-      title: '规则名称',
+      title: '分组标题',
       dataIndex: 'name',
       className: 'drag-visible',
     },
     {
-      title: '分组标题',
-      dataIndex: 'groupTitle',
+      title: '模式',
+      dataIndex: 'matchType',
+      width: 60,
+      render(value) {
+        return ['域名', '正则'][value]
+      },
     },
     {
-      title: '匹配模式',
-      dataIndex: 'matchType',
-      render(value) {
-        return ['域名匹配', '正则匹配'][value]
-      },
+      title: '优先级',
+      width: 70,
+      dataIndex: 'priority',
+      render: value => <span className="u-mono">{value}</span>
     },
     {
       title: '匹配内容',
       dataIndex: 'matchContent',
+      render: value => <span className="u-mono">{value}</span>
     },
     {
       title: '操作',
       width: 100,
       render: (_, record) =>
-        <Space>
+        <Space className="operations" split={<Divider type="vertical" />}>
           <Button type="link" onClick={() => {
             setEditData(record)
             form.setFieldsValue(record)
           }}>编辑</Button>
 
-          <Popconfirm title="确认删除这个规则吗?" onConfirm={() => handleDelete(record.sortIndex)}>
+          <Popconfirm
+            placement="left"
+            title="确认删除这个规则吗?"
+            onConfirm={() => handleDelete(record.sortIndex)}>
             <Button type="link">删除</Button>
           </Popconfirm>
         </Space>
     },
   ];
 
-  const handleDelete = (index: number) => {
+  /** 删除规则 */
+  const handleDelete = useCallback((index: number) => {
     const newData = dataSource.filter(item => item.sortIndex !== index);
-    chrome.storage.sync.set({ [TAB_ASSISTANT_RULES]: newData })
+    chrome.storage.sync.set({ [StorageKeyEnum.RULES]: newData })
       .then(() => setDataSource(newData))
-      .then(() => reloadRules())
-  };
+      .then(() => reloadConfig())
+  }, [dataSource]);
+
+  /** 获取当前tab链接 */
+  const getCurrentTabUrl = useCallback(async () => {
+    const currentTab = await chrome.tabs.getCurrent()
+    form.setFieldsValue({
+      matchContent: currentTab.url
+    })
+  }, [form])
 
   useEffect(() => {
-    chrome.storage.sync.get(TAB_ASSISTANT_RULES).then(res => {
-      const rules: RuleItem[] = res[TAB_ASSISTANT_RULES] || []
+    chrome.storage.sync.get(StorageKeyEnum.RULES).then(res => {
+      const rules: RuleItem[] = res[StorageKeyEnum.RULES] || []
 
       const dataSource = rules.map((item: RuleItem, i: number) =>
         ({ ...item, ruleId: item.ruleId || uuid(), priority: item.priority ?? 0, sortIndex: i }))
@@ -100,7 +99,7 @@ const Popup: React.FC = () => {
 
       if (rules.some((o: RuleItem) => !o.ruleId || o.priority === void 0)) {
         chrome.storage.sync.set({
-          [TAB_ASSISTANT_RULES]: dataSource
+          [StorageKeyEnum.RULES]: dataSource
         })
       }
     })
@@ -109,10 +108,12 @@ const Popup: React.FC = () => {
   const onFormOk = async () => {
     await form.validateFields()
     const newDataSource = [...dataSource]
-    const data = Object.assign({
+    const formData: RuleItem = form.getFieldsValue()
+    const data = Object.assign<Partial<RuleItem>, RuleItem>({
       sortIndex: editData?.sortIndex ?? Math.max(...dataSource.map(o => o.sortIndex)) + 1,
       ruleId: editData?.ruleId ?? uuid(),
-    }, form.getFieldsValue())
+      groupTitle: formData.name,
+    }, formData)
 
     if (editData?.ruleId) {
       const index = newDataSource.findIndex(o => o.ruleId === editData.ruleId)
@@ -121,28 +122,24 @@ const Popup: React.FC = () => {
       newDataSource.push(data)
     }
 
-    chrome.storage.sync.set({ [TAB_ASSISTANT_RULES]: newDataSource })
+    chrome.storage.sync.set({ [StorageKeyEnum.RULES]: newDataSource })
       .then(() => {
         setDataSource(newDataSource)
         setEditData(undefined)
         form.resetFields()
-        reloadRules()
+        reloadConfig()
       })
   }
 
-  const reloadRules = () => {
-    chrome.runtime.sendMessage(EventNames.ReloadRule, res => {
-      message.success('规则更新成功')
-    })
-  }
+  const closeModal = useCallback(() => {
+    setEditData(undefined)
+    form.resetFields()
+  }, [form])
 
   return (
     <div className="container">
       <Row style={{ marginBottom: 16 }}>
-        <Space>
-          <Button type="primary" onClick={() => setEditData({})}>添加规则</Button>
-          <Button type="primary" onClick={() => reloadRules()}>应用规则</Button>
-        </Space>
+        <Button type="primary" onClick={() => setEditData({})}>添加规则</Button>
       </Row>
       <Table
         size="small"
@@ -155,23 +152,28 @@ const Popup: React.FC = () => {
         title={editData?.ruleId ? '编辑规则' : '新建规则'}
         width={500}
         visible={!!editData}
-        onClose={() => setEditData(undefined)}
+        onClose={closeModal}
         footer={
           <Row justify="end">
             <Space>
-              <Button onClick={() => setEditData(undefined)}>取消</Button>
+              <Button onClick={closeModal}>取消</Button>
               <Button type="primary" onClick={() => onFormOk()}>确认</Button>
             </Space>
           </Row>
         }
       >
         <Form form={form} labelCol={{ span: 5 }}>
-          <Form.Item className="u-mb-15" label="规则名称" name="name" required rules={[{ required: true, message: "规则名称必填" }]}>
-            <Input placeholder='请输入' allowClear />
+          <Form.Item
+            required
+            className="u-mb-15"
+            label="分组标题"
+            name="name"
+            rules={[{ required: true, message: "规则名称必填" }]}>
+            <Input placeholder='是分组名，请输入' allowClear />
           </Form.Item>
-          <Form.Item className="u-mb-15" label="分组标题" name="groupTitle">
+          {/* <Form.Item className="u-mb-15" label="分组标题" name="groupTitle">
             <Input placeholder='请输入' allowClear />
-          </Form.Item>
+          </Form.Item> */}
           <Form.Item className="u-mb-15" label="优先级" name="priority">
             <Input type="number" step={1} min={0} defaultValue={0} />
           </Form.Item>
@@ -191,7 +193,10 @@ const Popup: React.FC = () => {
             name="matchContent"
             style={{ marginBottom: 0 }}
             rules={[{ required: true, message: "匹配内容必填" }]}>
-            <Input placeholder='请输入' allowClear />
+            <Space style={{ width: '100%' }}>
+              <Input placeholder='请输入' allowClear />
+              <Button onClick={() => getCurrentTabUrl()}>当前页面链接</Button>
+            </Space>
           </Form.Item>
         </Form>
       </Drawer>
@@ -199,4 +204,4 @@ const Popup: React.FC = () => {
   );
 };
 
-export default Popup;
+export default Rules;

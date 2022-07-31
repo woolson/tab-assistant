@@ -13,6 +13,7 @@ const entry = process.env.ENTRY || '';
 
 var alias = {
   'react-dom': '@hot-loader/react-dom',
+  '@': path.resolve('./src')
 };
 
 // load the secrets

@@ -10,13 +10,9 @@
  *    1.2 规则排序
  */
 
-import { EventNames } from "../../common/const"
+import { EventNameEnum, StorageKeyEnum } from "../../common/const"
 import { Logger } from "./helpers"
-import { MatchTypeEnum, NameMap, RuleItem } from "./types"
-
-interface Groups {
-  [key: string]: Partial<chrome.tabGroups.TabGroup> & { tabIds: Set<number>, index: number }
-}
+import { MatchTypeEnum, NameMap, RuleItem, Groups, TabAssistantConfig } from "./types"
 
 /** 标签助理类 */
 class TabAssistant {
@@ -29,10 +25,18 @@ class TabAssistant {
   /** 规则组 */
   rules: RuleItem[] = []
 
-  constructor(rules: RuleItem[], domainMap: NameMap) {
-    this.rules = rules
-    this.domainMap = domainMap
-    this.groups = rules.reduce((prev, rule) => {
+  /** 设置 */
+  setting: TabAssistantConfig['setting'] = {
+    remove3w: false
+  }
+
+  constructor(config: TabAssistantConfig) {
+    Logger.log('ta config', config)
+
+    this.rules = config.rules
+    if (config.domainMap) this.domainMap = config.domainMap
+    this.setting = Object.assign(this.setting, config.setting)
+    this.groups = config.rules.reduce((prev, rule) => {
       prev[rule.groupTitle] = {
         title: rule.groupTitle,
         color: rule.groupColor,
@@ -236,9 +240,15 @@ class TabAssistant {
         if (reg.test(url)) return rule
       }
     }
+
+    let title = this.domainMap[host] || host
+    if (this.setting.remove3w) {
+      title = title.replace('www.', '')
+    }
+
     /** 按domain获取名称 */
     return {
-      groupTitle: this.domainMap[host] || host,
+      groupTitle: title,
       groupColor: undefined,
       sortIndex: -1
     }
@@ -316,11 +326,17 @@ class TabAssistant {
 // ]
 
 async function main() {
-  const rules = await chrome.storage.sync
-    .get('TAB_ASSISTANT_RULES')
+  const storage = await chrome.storage.sync
+    .get([
+      StorageKeyEnum.RULES,
+      StorageKeyEnum.SETTING
+    ])
 
   /** 启动 */
-  const assistant = new TabAssistant(rules['TAB_ASSISTANT_RULES'] || [], {})
+  const assistant = new TabAssistant({
+    rules: storage[StorageKeyEnum.RULES],
+    setting: storage[StorageKeyEnum.SETTING],
+  })
   Logger.log('assistant ins', assistant)
 };
 
@@ -328,5 +344,5 @@ main();
 
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   await main();
-  sendResponse(EventNames.ReloadSucc)
+  sendResponse(EventNameEnum.RELOAD_SUCC)
 })

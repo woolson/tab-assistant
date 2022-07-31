@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Tab Assistant",
+  "name": "标签分组助手",
   "description": "A chrome extension from help you manage window tabs.",
   "permissions": [
     "tabGroups",

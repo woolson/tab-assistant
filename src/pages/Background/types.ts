@@ -31,3 +31,21 @@ export enum MatchTypeEnum {
   /** 正则匹配 */
   RegExp,
 }
+
+/** 标签分组 */
+export interface Groups {
+  [key: string]: Partial<chrome.tabGroups.TabGroup> & { tabIds: Set<number>, index: number }
+}
+
+/** 配置项 */
+export interface TabAssistantConfig {
+  /** 分组规则 */
+  rules: RuleItem[]
+  /** 给域名设置别名 */
+  domainMap?: NameMap
+  /** 设置 */
+  setting: {
+    /** 移除www.次级域名 */
+    remove3w: boolean
+  }
+}
