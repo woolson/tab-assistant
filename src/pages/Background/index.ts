@@ -97,7 +97,7 @@ class TabAssistant {
         if (groupId) {
           const tabs = (await Promise.all(Array.from(tabIds).map(tabId => chrome.tabs.get(tabId))))
             .filter(tabInfo => tabInfo.groupId !== id)
-          if (tabs.length) {
+          if (tabs?.length) {
             chrome.tabs.group({ groupId, tabIds: Array.from(tabIds) })
           }
         } else {
@@ -342,7 +342,8 @@ async function main() {
 
 main();
 
-chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
-  await main();
-  sendResponse(EventNameEnum.RELOAD_SUCC)
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  main();
+  sendResponse(EventNameEnum.RELOAD_SUCC);
+  return true;
 })

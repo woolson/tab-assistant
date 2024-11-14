@@ -13,7 +13,8 @@ const entry = process.env.ENTRY || '';
 
 var alias = {
   'react-dom': '@hot-loader/react-dom',
-  '@': path.resolve('./src')
+  '@': path.resolve('./src'),
+  'react/jsx-runtime': 'react/jsx-runtime.js'
 };
 
 // load the secrets

@@ -1,10 +1,11 @@
 import React, { memo, useEffect } from "react"
-import { Button, Form, message, Switch } from "antd"
+import { Button, Form, message, Switch, Tooltip } from "antd"
 import { EventNameEnum, StorageKeyEnum } from "../../../common/const"
 import { useCallback } from "react"
 import { useForm } from "antd/es/form/Form"
 import { Logger } from "../../Background/helpers"
 import "./style.less"
+import { QuestionCircleOutlined } from "@ant-design/icons"
 
 export const Setting = memo(() => {
   const [form] = useForm()
@@ -31,7 +32,17 @@ export const Setting = memo(() => {
   return (
     <div className="tab-assistant-setting">
       <Form form={form} onFinish={onFinish}>
-        <Form.Item label="移除www." name="remove3w" valuePropName="checked">
+        <Form.Item
+          label={
+            <>
+              <span>移除www.</span>
+              <Tooltip title="在将域名设置为分组名时，把域名中的 www. 移除，如：www.xxx.com 转换为 xxx.com">
+                <QuestionCircleOutlined style={{ marginLeft: 5 }} />
+              </Tooltip>
+            </>
+          }
+          name="remove3w"
+          valuePropName="checked">
           <Switch />
         </Form.Item>
 

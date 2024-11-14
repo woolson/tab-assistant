@@ -1,5 +1,5 @@
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Button, Form, Input, Drawer, Popconfirm, Radio, Row, Select, Space, Table, Divider } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useForm } from 'antd/lib/form/Form';
@@ -7,7 +7,19 @@ import { v4 as uuid } from 'uuid';
 import { reloadConfig } from '@/common';
 import { StorageKeyEnum } from '@/common/const';
 import { RuleItem } from '@/pages/Background/types';
+import { DndContext } from '@dnd-kit/core';
+import type { DragEndEvent } from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import type { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
+import { CSS } from '@dnd-kit/utilities';
 import './style.less';
+import { HolderOutlined, PlusOutlined } from '@ant-design/icons';
 
 const COLORS = [
   { value: 'grey', label: '灰色' },
@@ -20,6 +32,61 @@ const COLORS = [
   { value: 'cyan', label: '青色' }
 ]
 
+interface RowContextProps {
+  setActivatorNodeRef?: (element: HTMLElement | null) => void;
+  listeners?: SyntheticListenerMap;
+}
+
+interface RowProps extends React.HTMLAttributes<HTMLTableRowElement> {
+  'data-row-key': string;
+}
+
+const RowContext = React.createContext<RowContextProps>({});
+
+const DragHandle: React.FC = () => {
+  const { setActivatorNodeRef, listeners } = useContext(RowContext);
+  return (
+    <Button
+      type="text"
+      size="small"
+      icon={<HolderOutlined />}
+      style={{ cursor: 'move' }}
+      ref={setActivatorNodeRef}
+      {...listeners}
+    />
+  );
+};
+
+const TableRow: React.FC<RowProps> = (props) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: props['data-row-key'] });
+
+  const style: React.CSSProperties = {
+    ...props.style,
+    transform: CSS.Translate.toString(transform),
+    transition,
+    ...(isDragging ? { position: 'relative', zIndex: 9999 } : {}),
+  };
+
+  const contextValue = useMemo<RowContextProps>(
+    () => ({ setActivatorNodeRef, listeners }),
+    [setActivatorNodeRef, listeners],
+  );
+
+  return (
+    <RowContext.Provider value={contextValue}>
+      <tr {...props} ref={setNodeRef} style={style} {...attributes} />
+    </RowContext.Provider>
+  );
+};
+
 const data: RuleItem[] = [];
 
 const Rules: React.FC = () => {
@@ -28,6 +95,7 @@ const Rules: React.FC = () => {
   const [form] = useForm<RuleItem>()
 
   const columns: ColumnsType<RuleItem> = [
+    { key: 'sort', align: 'center', width: 40, render: () => <DragHandle /> },
     {
       title: '分组标题',
       dataIndex: 'name',
@@ -88,6 +156,21 @@ const Rules: React.FC = () => {
     })
   }, [form])
 
+  const onDragEnd = ({ active, over }: DragEndEvent) => {
+    if (active.id !== over?.id) {
+      setDataSource((prevState) => {
+        const activeIndex = prevState.findIndex((record) => record.ruleId === active?.id);
+        const overIndex = prevState.findIndex((record) => record.ruleId === over?.id);
+        const newDataSource = arrayMove(prevState, activeIndex, overIndex).map((item, index) => ({ ...item, sortIndex: index }));
+
+        chrome.storage.sync.set({ [StorageKeyEnum.RULES]: newDataSource })
+          .then(reloadConfig)
+
+        return newDataSource;
+      });
+    }
+  };
+
   useEffect(() => {
     chrome.storage.sync.get(StorageKeyEnum.RULES).then(res => {
       const rules: RuleItem[] = res[StorageKeyEnum.RULES] || []
@@ -138,20 +221,29 @@ const Rules: React.FC = () => {
 
   return (
     <div className="container">
-      <Row style={{ marginBottom: 16 }}>
-        <Button type="primary" onClick={() => setEditData({})}>添加规则</Button>
-      </Row>
-      <Table
-        size="small"
-        pagination={false}
-        dataSource={dataSource}
-        columns={columns}
-        rowKey="index"
-      />
+      <Button style={{ position: 'absolute', right: 20, top: -55 }} icon={<PlusOutlined />} onClick={() => setEditData({})}>添加规则</Button>
+      <DndContext
+        onDragEnd={onDragEnd}
+        modifiers={[restrictToVerticalAxis]}
+      >
+        <SortableContext items={dataSource.map((item) => item.ruleId)} strategy={verticalListSortingStrategy}>
+          <Table
+            size="small"
+            pagination={false}
+            dataSource={dataSource}
+            columns={columns}
+            rowKey="ruleId"
+            components={{
+              body: { row: TableRow },
+            }}
+          />
+        </SortableContext>
+      </DndContext>
       <Drawer
         title={editData?.ruleId ? '编辑规则' : '新建规则'}
         width={500}
-        visible={!!editData}
+        zIndex={99999}
+        open={!!editData}
         onClose={closeModal}
         footer={
           <Row justify="end">

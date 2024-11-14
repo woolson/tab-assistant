@@ -1,4 +1,4 @@
-@import '~antd/dist/antd.less';
+// @import '~antd/dist/antd.less';
 
 /* cyrillic-ext */
 @font-face {
@@ -67,10 +67,21 @@ html,
 body {
   width: 750px;
   height: 600px;
+  margin: 0;
+}
+
+#app-container {
+  height: 100vh;
+  box-sizing: border-box;
+  border: 3px solid #2E75E5;
 }
 
 .ant-tabs-tab {
   letter-spacing: 1px;
+}
+
+.ant-table-row .ant-table-cell {
+  padding: 4px 8px !important;
 }
 
 .u-mono {

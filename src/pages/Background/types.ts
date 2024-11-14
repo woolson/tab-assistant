@@ -2,6 +2,7 @@ export type GroupColorEnum = chrome.tabGroups.ColorEnum
 
 /** 规则信息 */
 export interface RuleItem {
+  key?: string | number;
   /** 规则Id */
   ruleId: string
   /** 规则名称 */
