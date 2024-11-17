@@ -1,19 +1,24 @@
-import React, { memo, useEffect } from "react"
-import { Button, Form, message, Switch, Tooltip } from "antd"
+import React, { memo, useEffect, useState } from "react"
+import { Button, Form, message, Row, Select, Switch, Tooltip } from "antd"
 import { EventNameEnum, StorageKeyEnum } from "../../../common/const"
 import { useCallback } from "react"
 import { useForm } from "antd/es/form/Form"
 import { Logger } from "../../Background/helpers"
 import "./style.less"
 import { QuestionCircleOutlined } from "@ant-design/icons"
+import { TabAssistantConfig } from "@/pages/Background/types"
 
 export const Setting = memo(() => {
-  const [form] = useForm()
+  const [form] = useForm<TabAssistantConfig['setting']>()
+  const [defaultOptions, setDefaultOptions] = useState([])
 
   useEffect(() => {
     chrome.storage.sync.get([StorageKeyEnum.SETTING])
       .then(res => {
         Logger.log('setting', res?.[StorageKeyEnum.SETTING])
+        if (res?.[StorageKeyEnum.SETTING]) {
+          setDefaultOptions(res?.[StorageKeyEnum.SETTING]?.removeKeywordList?.map((o: string) => ({ value: o, label: o })))
+        }
         form.setFieldsValue({ ...(res?.[StorageKeyEnum.SETTING] || {}) })
       })
   }, [])
@@ -35,20 +40,25 @@ export const Setting = memo(() => {
         <Form.Item
           label={
             <>
-              <span>移除www.</span>
-              <Tooltip title="在将域名设置为分组名时，把域名中的 www. 移除，如：www.xxx.com 转换为 xxx.com">
+              <span>分组名忽略词</span>
+              <Tooltip title="在将域名设置为分组名时，把域名中的忽略词移除，如：www.xxx.com 转换为 xxx.com">
                 <QuestionCircleOutlined style={{ marginLeft: 5 }} />
               </Tooltip>
             </>
           }
-          name="remove3w"
-          valuePropName="checked">
-          <Switch />
+          name="removeKeywordList">
+          <Select
+            allowClear
+            mode="tags"
+            placeholder="输入自定义标签，按 Enter 确认"
+            style={{ width: "100%" }}
+            options={defaultOptions}
+          />
         </Form.Item>
 
-        <Form.Item>
+        <Row justify="end">
           <Button htmlType="submit" type="primary">保存</Button>
-        </Form.Item>
+        </Row>
       </Form>
     </div>
   )

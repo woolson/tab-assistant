@@ -46,7 +46,14 @@ export interface TabAssistantConfig {
   domainMap?: NameMap
   /** 设置 */
   setting: {
-    /** 移除www.次级域名 */
+    /**
+     * 移除www.次级域名
+     * @deprecated
+     */
     remove3w: boolean
+    /**
+     * 移除域名中的关键字
+     */
+    removeKeywordList: string[]
   }
 }

@@ -19,7 +19,7 @@ import type { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { CSS } from '@dnd-kit/utilities';
 import './style.less';
-import { HolderOutlined, PlusOutlined } from '@ant-design/icons';
+import { HolderOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 
 const COLORS = [
   { value: 'grey', label: '灰色' },
@@ -134,7 +134,7 @@ const Rules: React.FC = () => {
             placement="left"
             title="确认删除这个规则吗?"
             onConfirm={() => handleDelete(record.sortIndex)}>
-            <Button type="link">删除</Button>
+            <Button type="link" danger>删除</Button>
           </Popconfirm>
         </Space>
     },
@@ -172,20 +172,7 @@ const Rules: React.FC = () => {
   };
 
   useEffect(() => {
-    chrome.storage.sync.get(StorageKeyEnum.RULES).then(res => {
-      const rules: RuleItem[] = res[StorageKeyEnum.RULES] || []
-
-      const dataSource = rules.map((item: RuleItem, i: number) =>
-        ({ ...item, ruleId: item.ruleId || uuid(), priority: item.priority ?? 0, sortIndex: i }))
-
-      setDataSource(dataSource)
-
-      if (rules.some((o: RuleItem) => !o.ruleId || o.priority === void 0)) {
-        chrome.storage.sync.set({
-          [StorageKeyEnum.RULES]: dataSource
-        })
-      }
-    })
+    reloadRules()
   }, [])
 
   const onFormOk = async () => {
@@ -219,9 +206,34 @@ const Rules: React.FC = () => {
     form.resetFields()
   }, [form])
 
+  const reloadRules = useCallback(() => {
+    chrome.storage.sync.get(StorageKeyEnum.RULES).then(res => {
+      const rules: RuleItem[] = res[StorageKeyEnum.RULES] || []
+
+      const dataSource = rules.map((item: RuleItem, i: number) =>
+        ({ ...item, ruleId: item.ruleId || uuid(), priority: item.priority ?? 0, sortIndex: i }))
+
+      setDataSource(dataSource)
+
+      if (rules.some((o: RuleItem) => !o.ruleId || o.priority === void 0)) {
+        chrome.storage.sync.set({
+          [StorageKeyEnum.RULES]: dataSource
+        })
+      }
+    })
+  }, [])
+
   return (
     <div className="container">
-      <Button style={{ position: 'absolute', right: 20, top: -55 }} icon={<PlusOutlined />} onClick={() => setEditData({})}>添加规则</Button>
+      <Space style={{ position: 'absolute', right: 20, top: -55 }}>
+        <Button icon={<PlusOutlined />} onClick={() => setEditData({})}>添加规则</Button>
+        <Button
+          icon={<ReloadOutlined />}
+          onClick={() => {
+            reloadRules()
+            reloadConfig()
+          }}>刷新规则</Button>
+      </Space>
       <DndContext
         onDragEnd={onDragEnd}
         modifiers={[restrictToVerticalAxis]}

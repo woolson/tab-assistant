@@ -27,7 +27,8 @@ class TabAssistant {
 
   /** 设置 */
   setting: TabAssistantConfig['setting'] = {
-    remove3w: false
+    remove3w: false,
+    removeKeywordList: []
   }
 
   constructor(config: TabAssistantConfig) {
@@ -242,8 +243,10 @@ class TabAssistant {
     }
 
     let title = this.domainMap[host] || host
-    if (this.setting.remove3w) {
-      title = title.replace('www.', '')
+    if (this.setting.removeKeywordList?.length) {
+      title = this.setting.removeKeywordList.reduce((prev, next) => {
+        return prev.replace(next, '')
+      }, title);
     }
 
     /** 按domain获取名称 */
