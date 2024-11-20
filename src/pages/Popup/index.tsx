@@ -8,6 +8,7 @@ import Setting from './Setting';
 // import Useful from './Usefal';
 import Header from './Header';
 import './index.less';
+import '../../common/styles/font.less';
 
 const items = [
   {
