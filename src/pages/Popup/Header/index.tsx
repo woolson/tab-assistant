@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import Logo from '@/assets/img/icon.svg';
-import { Button, Row, Space } from 'antd';
+import { Button, Row, Space, theme } from 'antd';
 
 const headStyle = {
   fontSize: 24,
@@ -11,6 +11,8 @@ const headStyle = {
 }
 
 export const Header = () => {
+  const { token } = theme.useToken();
+
   const updateGroupStatus = useCallback(async (collapsed: boolean) => {
     const currentWindow = await chrome.windows.getCurrent()
     const existGroups = await chrome.tabGroups.query({ windowId: currentWindow.id })
@@ -36,12 +38,12 @@ export const Header = () => {
       justify="space-between">
       <Row align="middle">
         <img src={Logo} style={{ height: 40 }} />
-        <h1 style={headStyle}>标签分组助手</h1>
+        <h1 style={headStyle}>TabAssistant 标签分组助手</h1>
       </Row>
 
       <Space>
-        <Button onClick={expandAll}>全部展开</Button>
-        <Button onClick={collapseAll}>全部折叠</Button>
+        <Button type='link' style={{ padding: 0 }} onClick={expandAll}>全部展开</Button>
+        <Button type='link' style={{ padding: 0 }} onClick={collapseAll}>全部折叠</Button>
       </Space>
     </Row>
   )

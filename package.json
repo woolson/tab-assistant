@@ -1,16 +1,16 @@
 {
   "name": "tab-assistant",
-  "version": "1.1.0",
-  "description": "A chrome extension from help you manage window tabs.",
+  "version": "1.1.2",
+  "description": "按规则自动化标签分组工具",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/lxieyang/chrome-extension-boilerplate-react.git"
   },
   "scripts": {
-    "build": "node utils/build.js",
-    "build:bg": "ENTRY=background node utils/build.js",
-    "start": "node utils/webserver.js",
+    "build": "node serve/build.js",
+    "build:bg": "ENTRY=background node serve/build.js",
+    "start": "node serve/webserver.js",
     "prettier": "prettier --write '**/*.{js,jsx,ts,tsx,json,css,scss,md}'"
   },
   "dependencies": {

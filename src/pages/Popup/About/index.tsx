@@ -1,15 +1,19 @@
 import React, { useCallback } from "react"
-import { Button, Drawer, message, Result, Row, Space, Tag } from "antd"
-import { DownloadOutlined, ExportOutlined, GithubOutlined } from "@ant-design/icons"
+import { Button, Drawer, message, Result, Row, Space, Tag, theme } from "antd"
+import { DownloadOutlined, ExportOutlined, ShareAltOutlined } from "@ant-design/icons"
 import Icon from '@/assets/img/icon.svg';
 import FileSaver from 'file-saver';
 import { StorageKeyEnum } from "@/common/const";
-import { reloadConfig } from "@/common";
+import { openLink, reloadConfig } from "@/common";
 import { useSetState } from "ahooks";
 import PackageJson from '../../../../package.json';
 import "./style.less"
 
 export const About = () => {
+  const { token } = theme.useToken();
+
+  console.log(token)
+
   const [state, setState] = useSetState({
     /** 显示变更日志 */
     showChangeLogModal: false
@@ -56,12 +60,42 @@ export const About = () => {
     <>
       <Result
         className="tab-assistant-about"
-        icon={<img src={Icon} width={130} />}
-        title={<h3 style={{ margin: '0' }}>标签分组助手</h3>}
-        subTitle="规则自动化分组浏览器标签页"
+        icon={<img src={Icon} width={100} />}
+        title={<h3 style={{ margin: '0' }}>TabAssistant 标签分组助手</h3>}
+        subTitle={PackageJson.description}
         extra={
-          <>
-            <Row justify="center">
+          <div style={{ backgroundColor: token.colorBgContainerDisabled, padding: '15px 20px 20px', borderRadius: '8px' }}>
+            <Row style={{ fontFamily: 'monospace' }} justify="center">
+              <Space size="small">
+                <div>
+                  当前版本：
+                  <Button
+                    type="link"
+                    style={{ padding: '0' }}
+                    onClick={() => openLink('https://chromewebstore.google.com/detail/%E6%A0%87%E7%AD%BE%E5%88%86%E7%BB%84%E5%8A%A9%E6%89%8B/obdaljfdjocbdmpofhncldmfppjeemda?authuser=0&hl=zh-CN')}>
+                    v{PackageJson.version}<ShareAltOutlined />
+                  </Button>
+                </div>
+                <span>/</span>
+                <span>
+                  作者：
+                  <Button
+                    type="link"
+                    style={{ padding: '0' }}
+                    onClick={() => openLink('https://github.com/woolson')}>
+                    Woolson Lee
+                  </Button>
+                </span>
+                <span>/</span>
+                <Button
+                  type="link"
+                  style={{ padding: '0' }}
+                  onClick={() => setState({ showChangeLogModal: true })}>
+                  更新日志
+                </Button>
+              </Space>
+            </Row>
+            <Row justify="center" style={{ marginTop: '10px' }}>
               <Space>
                 {/* <Button
                   icon={<GithubOutlined />}
@@ -70,25 +104,19 @@ export const About = () => {
                 </Button> */}
                 <Button
                   icon={<ExportOutlined />}
-                  onClick={exportSetting}>
-                  导出规则和设置
+                  onClick={exportSetting}
+                  style={{ boxShadow: 'none' }}>
+                  <span><b>导出</b>规则和设置</span>
                 </Button>
                 <Button
                   icon={<DownloadOutlined />}
-                  onClick={importSetting}>
-                  导入规则和设置
+                  onClick={importSetting}
+                  style={{ boxShadow: 'none' }}>
+                  <span><b>导入</b>规则和设置</span>
                 </Button>
               </Space>
             </Row>
-            <Row style={{fontFamily: 'monospace', marginTop: 10}} justify="center">
-              <Space size="small">
-                <div>当前版本: v{PackageJson.version} / 作者：Woolson Lee</div>
-                <Button type="link" onClick={() => setState({ showChangeLogModal: true })}>
-                  更新日志
-                </Button>
-              </Space>
-            </Row>
-          </>
+          </div>
         }
       />
 
@@ -97,8 +125,12 @@ export const About = () => {
         open={state.showChangeLogModal}
         width="80%"
         onClose={() => setState({ showChangeLogModal: false })}>
+        <h3>1.1.2 (2024-11-24)</h3>
+        <span>修复暗色样式问题</span>
+        <h3>1.1.1 (2024-11-24)</h3>
+        <span>更新扩展相关文案</span>
         <h3>1.1.0 (2024-11-17)</h3>
-        <p><Tag color="volcano">NEW</Tag><b>新增功能：</b></p>
+        <p><Tag color="volcano" style={{ fontWeight: 'bolder' }}>NEW</Tag><b>新增功能：</b></p>
         <ol>
           <li>支持一键全部折叠和全部展开</li>
           <li>支持分组拖动排序</li>
@@ -107,7 +139,7 @@ export const About = () => {
           <li>增加配置界面暗黑模式（和浏览器暗黑模式联动，不可手动更改）</li>
           <li>增加版本更新日志</li>
         </ol>
-        <p><Tag color="green">OTHER</Tag>其他优化：</p>
+        <p><Tag>ETC</Tag>其他：</p>
         <ol>
           <li>配置窗口样式细节优化，更精致</li>
           <li>更换插件的 Logo</li>
@@ -115,7 +147,7 @@ export const About = () => {
           <li>其他内部兼容性提升</li>
         </ol>
         <h3>1.0.0 (2022-07-19)</h3>
-        <p><Tag color="volcano">NEW</Tag><b>新增功能：</b></p>
+        <p><Tag color="volcano" style={{ fontWeight: 'bolder' }}>NEW</Tag><b>新增功能：</b></p>
         <ol>
           <li>分组规则管理，新增标签页按规则自动分组</li>
           <li>为匹配到分组的标签页按域名分组，域名分组按字母排序</li>
