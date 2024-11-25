@@ -1,5 +1,5 @@
 import React, { useCallback } from "react"
-import { Button, Drawer, message, Result, Row, Space, Tag, theme } from "antd"
+import { Button, Divider, Drawer, message, Result, Row, Space, Tag, theme } from "antd"
 import { DownloadOutlined, ExportOutlined, ShareAltOutlined } from "@ant-design/icons"
 import Icon from '@/assets/img/icon.svg';
 import FileSaver from 'file-saver';
@@ -93,6 +93,13 @@ export const About = () => {
                   onClick={() => setState({ showChangeLogModal: true })}>
                   更新日志
                 </Button>
+                <span>/</span>
+                <Button
+                  type="link"
+                  style={{ padding: '0' }}
+                  onClick={() => openLink('https://github.com/woolson/TabAssistant/issues')}>
+                  问题反馈
+                </Button>
               </Space>
             </Row>
             <Row justify="center" style={{ marginTop: '10px' }}>
@@ -125,10 +132,30 @@ export const About = () => {
         open={state.showChangeLogModal}
         width="80%"
         onClose={() => setState({ showChangeLogModal: false })}>
+        <h3>1.2.0 (2024-11-25)</h3>
+        <p><Tag color="volcano" style={{ fontWeight: 'bolder' }}>NEW</Tag><b>新增功能：</b></p>
+        <ol>
+          <li>支持多窗口的标签页管理</li>
+          <li>新增规则支持快捷读取当前标签页域名</li>
+          <li>新增问题反馈渠道</li>
+        </ol>
+        <p><Tag color="lime">ETC</Tag>其他：</p>
+        <ol>
+          <li>优化新增规则和忽略词配置体验</li>
+        </ol>
+        <Divider dashed />
         <h3>1.1.2 (2024-11-24)</h3>
-        <span>修复暗色样式问题</span>
+        <p><Tag color="lime">ETC</Tag>其他：</p>
+        <ol>
+          <li>修复暗色样式问题</li>
+        </ol>
+        <Divider dashed />
         <h3>1.1.1 (2024-11-24)</h3>
-        <span>更新扩展相关文案</span>
+        <p><Tag color="lime">ETC</Tag>其他：</p>
+        <ol>
+          <li>更新扩展相关文案</li>
+        </ol>
+        <Divider dashed />
         <h3>1.1.0 (2024-11-17)</h3>
         <p><Tag color="volcano" style={{ fontWeight: 'bolder' }}>NEW</Tag><b>新增功能：</b></p>
         <ol>
@@ -139,13 +166,14 @@ export const About = () => {
           <li>增加配置界面暗黑模式（和浏览器暗黑模式联动，不可手动更改）</li>
           <li>增加版本更新日志</li>
         </ol>
-        <p><Tag>ETC</Tag>其他：</p>
+        <p><Tag color="lime">ETC</Tag>其他：</p>
         <ol>
           <li>配置窗口样式细节优化，更精致</li>
           <li>更换插件的 Logo</li>
           <li>首次使用体验优化</li>
           <li>其他内部兼容性提升</li>
         </ol>
+        <Divider dashed />
         <h3>1.0.0 (2022-07-19)</h3>
         <p><Tag color="volcano" style={{ fontWeight: 'bolder' }}>NEW</Tag><b>新增功能：</b></p>
         <ol>

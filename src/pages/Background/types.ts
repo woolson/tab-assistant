@@ -35,7 +35,7 @@ export enum MatchTypeEnum {
 
 /** 标签分组 */
 export interface Groups {
-  [key: string]: Partial<chrome.tabGroups.TabGroup> & { tabIds: Set<number>, index: number }
+  [key: string]: Partial<chrome.tabGroups.TabGroup> & { tabIds: Set<number>, index: number, windowId?: number }
 }
 
 /** 配置项 */

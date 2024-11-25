@@ -38,17 +38,12 @@ export const Setting = memo(() => {
     <div className="tab-assistant-setting">
       <Form form={form} onFinish={onFinish}>
         <Form.Item
-          label={
-            <>
-              <span>分组名忽略词</span>
-              <Tooltip title="在将域名设置为分组名时，把域名中的忽略词移除，如：www.xxx.com 转换为 xxx.com">
-                <QuestionCircleOutlined style={{ marginLeft: 5 }} />
-              </Tooltip>
-            </>
-          }
-          name="removeKeywordList">
+          label="分组名忽略词"
+          name="removeKeywordList"
+          extra="以域名命名分组时，会移除域名中对应的关键词，如：www.xxx.com 转换为 xxx.com。">
           <Select
             allowClear
+            open={false}
             mode="tags"
             placeholder="输入自定义标签，按 Enter 确认"
             style={{ width: "100%" }}

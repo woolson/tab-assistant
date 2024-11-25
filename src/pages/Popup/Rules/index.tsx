@@ -1,6 +1,6 @@
 
 import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { Button, Form, Input, Drawer, Popconfirm, Radio, Row, Select, Space, Table, Divider } from 'antd';
+import { Button, Form, Input, Drawer, Popconfirm, Radio, Row, Select, Space, Table, Divider, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useForm } from 'antd/lib/form/Form';
 import { v4 as uuid } from 'uuid';
@@ -95,26 +95,28 @@ const Rules: React.FC = () => {
   const [form] = useForm<RuleItem>()
 
   const columns: ColumnsType<RuleItem> = [
-    { key: 'sort', align: 'center', width: 40, render: () => <DragHandle /> },
+    { key: 'sort', fixed: 'left', align: 'center', width: 40, render: () => <DragHandle /> },
     {
       title: '分组标题',
+      fixed: 'left',
       dataIndex: 'name',
       className: 'drag-visible',
     },
     {
-      title: '模式',
+      title: '匹配模式',
       dataIndex: 'matchType',
-      width: 60,
+      width: 80,
       render(value) {
-        return ['域名', '正则'][value]
+        const data = ['域名', '正则'][value]
+        return <Tag color={['red', 'green'][value]}>{data}</Tag>
       },
     },
-    {
-      title: '优先级',
-      width: 70,
-      dataIndex: 'priority',
-      render: value => <span className="u-mono">{value}</span>
-    },
+    // {
+    //   title: '优先级',
+    //   width: 70,
+    //   dataIndex: 'priority',
+    //   render: value => <span className="u-mono">{value}</span>
+    // },
     {
       title: '匹配内容',
       dataIndex: 'matchContent',
@@ -122,6 +124,7 @@ const Rules: React.FC = () => {
     },
     {
       title: '操作',
+      fixed: 'right',
       width: 100,
       render: (_, record) =>
         <Space className="operations" split={<Divider type="vertical" />}>
@@ -150,10 +153,13 @@ const Rules: React.FC = () => {
 
   /** 获取当前tab链接 */
   const getCurrentTabUrl = useCallback(async () => {
-    const currentTab = await chrome.tabs.getCurrent()
-    form.setFieldsValue({
-      matchContent: currentTab.url
-    })
+    const currentTab = await chrome.tabs.query({ active: true })
+    if (currentTab.length) {
+      const url = new URL(currentTab[0].url as string);
+      form.setFieldsValue({
+        matchContent: (form.getFieldValue('matchContent') || '') + url.host
+      })
+    }
   }, [form])
 
   const onDragEnd = ({ active, over }: DragEndEvent) => {
@@ -226,7 +232,16 @@ const Rules: React.FC = () => {
   return (
     <div className="container">
       <Space style={{ position: 'absolute', right: 20, top: -55 }}>
-        <Button icon={<PlusOutlined />} onClick={() => setEditData({})}>添加规则</Button>
+        <Button
+          icon={<PlusOutlined />}
+          onClick={() => {
+            form.setFieldsValue({
+              matchType: 0,
+              groupColor: 'blue',
+            })
+            setEditData({})
+          }}>
+          添加规则</Button>
         <Button
           icon={<ReloadOutlined />}
           onClick={() => {
@@ -248,6 +263,7 @@ const Rules: React.FC = () => {
             components={{
               body: { row: TableRow },
             }}
+            scroll={{ x: 'max-content' }}
           />
         </SortableContext>
       </DndContext>
@@ -273,16 +289,16 @@ const Rules: React.FC = () => {
             label="分组标题"
             name="name"
             rules={[{ required: true, message: "规则名称必填" }]}>
-            <Input placeholder='是分组名，请输入' allowClear />
+            <Input placeholder='请输入分组标题' allowClear />
           </Form.Item>
           {/* <Form.Item className="u-mb-15" label="分组标题" name="groupTitle">
             <Input placeholder='请输入' allowClear />
           </Form.Item> */}
-          <Form.Item className="u-mb-15" label="优先级" name="priority">
+          <Form.Item className="u-mb-15" label="优先级" name="priority" hidden>
             <Input type="number" step={1} min={0} defaultValue={0} />
           </Form.Item>
           <Form.Item className="u-mb-15" label="分组颜色" name="groupColor">
-            <Select options={COLORS} />
+            <Select options={COLORS} placeholder="请选择分组颜色" />
           </Form.Item>
           <Form.Item className="u-mb-15" label="匹配模式" name="matchType" required rules={[{ required: true, message: "匹配模式必选" }]}>
             <Radio.Group>
@@ -296,8 +312,19 @@ const Rules: React.FC = () => {
             label="匹配内容"
             name="matchContent"
             style={{ marginBottom: 0 }}
-            rules={[{ required: true, message: "匹配内容必填" }]}>
-            <Input placeholder='请输入' allowClear />
+            rules={[{ required: true, message: "匹配内容必填" }]}
+            extra={
+              <>
+                <Button type="link" style={{ padding: 0 }} onClick={getCurrentTabUrl}>点击插入当前标签域名</Button>
+                ，匹配模式为按正则时支持填写正则表达式，如：(developer.chrome.com|chrome.google.com)
+              </>
+            }>
+            <Input.TextArea
+              autoSize={{ minRows: 2 }}
+              placeholder='请输入'
+              allowClear
+              styles={{ textarea: { fontFamily: 'PuHuiTi' } }}
+            />
           </Form.Item>
         </Form>
       </Drawer>

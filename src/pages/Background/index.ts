@@ -13,11 +13,14 @@
 import { EventNameEnum, StorageKeyEnum } from "../../common/const"
 import { Logger } from "./helpers"
 import { MatchTypeEnum, NameMap, RuleItem, Groups, TabAssistantConfig } from "./types"
+import { cloneDeep, remove } from 'lodash-es'
 
 /** 标签助理类 */
 class TabAssistant {
   /** 当前所有的分组 */
-  groups: Groups = {}
+  groups: {
+    [windowId: number]: Groups
+  } = {}
 
   /** 域名名称映射 */
   domainMap: NameMap = {}
@@ -32,22 +35,13 @@ class TabAssistant {
   }
 
   constructor(config: TabAssistantConfig) {
-    Logger.log('ta config', config)
+    Logger.log('初始化_扩展配置', config)
 
     this.rules = config.rules
     if (config.domainMap) this.domainMap = config.domainMap
     this.setting = Object.assign(this.setting, config.setting)
-    this.groups = config.rules.reduce((prev, rule) => {
-      prev[rule.groupTitle] = {
-        title: rule.groupTitle,
-        color: rule.groupColor,
-        index: rule.sortIndex,
-        tabIds: new Set(),
-      }
-      return prev
-    }, {} as Groups)
 
-    Logger.log('rule groups', JSON.parse(JSON.stringify(this.groups)))
+    Logger.log('初始化_分组信息', cloneDeep(this.groups))
 
     this.bootstrap()
 
@@ -60,85 +54,113 @@ class TabAssistant {
 
   /** 主程序 */
   async bootstrap() {
-    const currentWindow = await chrome.windows.getCurrent()
-    /** 当前已存在的分组 */
-    const existGroups = await chrome.tabGroups.query({ windowId: currentWindow.id })
-    existGroups.forEach(group => {
-      const ruleGroup = this.groups[group.title as string]
-      if (ruleGroup) {
-        this.groups[group.title as string] = Object.assign(this.groups[group.title as string], { id: group.id })
-      } else {
-        this.groups[group.title as string] = Object.assign({}, group, {
-          tabIds: new Set<number>(),
-          index: -1,
-        })
-      }
-    })
-    Logger.log('bootstrap groups', JSON.parse(JSON.stringify(this.groups)))
+    const windows = await chrome.windows.getAll()
+    if (!windows.length) return
 
-    /** 当前窗口所有的标签 */
-    const tabs = await chrome.tabs.query({ currentWindow: true })
-    Logger.log('tabs', tabs)
+    windows.forEach(async window => {
+      if (!window.id) return
+      this.groups[window.id] = this.rules.reduce((prev, rule) => {
+        prev[rule.groupTitle] = {
+          title: rule.groupTitle,
+          color: rule.groupColor,
+          index: rule.sortIndex,
+          tabIds: new Set(),
+          windowId: window.id
+        }
+        return prev
+      }, {} as Groups)
 
-    /** 将标签页进行分组更新 */
-    for (const tab of tabs) {
-      const tabInfo = await chrome.tabs.get(tab.id as number)
-      this.addTabToGroup(tabInfo.id as number, tabInfo.url as string)
-    }
-
-    /** 根据分组进行创建分组，并移到分组里面 */
-    for (const { title = '', color, tabIds, index, id } of this.getSortedGroups()) {
-      let groupId = id
-      if (tabIds.size) {
-        Logger.log('bootstrap insert', title, index)
-        /**
-         * 获取Tab所属group
-         */
-
-        if (groupId) {
-          const tabs = (await Promise.all(Array.from(tabIds).map(tabId => chrome.tabs.get(tabId))))
-            .filter(tabInfo => tabInfo.groupId !== id)
-          if (tabs?.length) {
-            chrome.tabs.group({ groupId, tabIds: Array.from(tabIds) })
+      /** 当前已存在的分组 */
+      const existGroups = await chrome.tabGroups.query({ windowId: window.id })
+      /** 当前窗口的分组 */
+      const currentWindowGroups = this.getGroupsByWindowId({ windowId: window.id })
+      existGroups.forEach(group => {
+        if (!group.title) return;
+        // 如果已经有同名的分组，直接复用该分组
+        const ruleGroup = currentWindowGroups[group.title]
+        if (ruleGroup) {
+          currentWindowGroups[group.title] = {
+            ...ruleGroup,
+            id: group.id,
+            windowId: window.id
           }
         } else {
-          groupId = await chrome.tabs.group({ tabIds: Array.from(tabIds) })
-          this.groups[title].id = groupId
+          currentWindowGroups[group.title] = {
+            ...group,
+            tabIds: new Set<number>(),
+            index: -1,
+            windowId: window.id
+          }
         }
-        await chrome.tabGroups.update(groupId, { title, color })
-        Logger.log('bootstrap index', title, this.getGroupIndex(index, title))
-        await chrome.tabGroups.move(groupId, { index: this.getGroupIndex(index, title) })
-      }
-    }
+      })
+      Logger.log('bootstrap groups', cloneDeep(this.groups))
 
-    Logger.log('last groups', JSON.parse(JSON.stringify(this.groups)))
+      /** 当前窗口所有的标签 */
+      const tabs = await chrome.tabs.query({ windowId: window.id })
+      Logger.log('tabs', tabs)
+
+      /** 将标签页进行分组更新 */
+      for (const tab of tabs) {
+        const tabInfo = await chrome.tabs.get(tab.id as number)
+        this.addTabToGroup(tabInfo, false)
+      }
+
+      /** 当前窗口排序后的分组 */
+      const currentWindowSortedGroups = this.getSortedGroups(window.id)
+      /** 根据分组进行创建分组，并移到分组里面 */
+      for (const groupInfo of currentWindowSortedGroups) {
+        let groupId = groupInfo.id
+        if (groupInfo.tabIds?.size) {
+          Logger.log('初始化标签分组', groupInfo.title, groupInfo.index)
+          // 获取Tab所属group
+          if (groupId) {
+            const tabs = (await Promise.all(Array.from(groupInfo.tabIds).map(tabId => chrome.tabs.get(tabId))))
+              .filter(tabInfo => tabInfo.groupId !== groupId)
+            if (tabs?.length) {
+              chrome.tabs.group({ groupId, tabIds: Array.from(groupInfo.tabIds) })
+            }
+          } else {
+            groupId = await chrome.tabs.group({ tabIds: Array.from(groupInfo.tabIds) })
+            currentWindowGroups[groupInfo.title as string].id = groupId
+          }
+          chrome.tabGroups.update(groupId, { title: groupInfo.title, color: groupInfo.color })
+          chrome.tabGroups.move(groupId, {
+            index: this.getGroupIndex({
+              sortIndex: groupInfo.index,
+              groupTitle: groupInfo.title || '',
+              windowId: window.id
+            })
+          })
+        }
+      }
+    })
   }
 
   /**
    * 获取Group要移动的位置
    * @param sortIndex group所在位置索引或分组的名称
    */
-  getGroupIndex(sortIndex: number, groupTitle: string) {
-    Logger.log('getGroupIndex one', groupTitle, sortIndex)
+  getGroupIndex(params: { sortIndex: number, groupTitle: string; windowId: number }) {
+    Logger.log('getGroupIndex one', params.groupTitle, params.sortIndex)
     /** 排序后的分组列表 */
-    const sortedGroups = this.getSortedGroups()
+    const sortedGroups = this.getSortedGroups(params.windowId)
     /** 有固定排序分组 */
     const topGroups = sortedGroups.filter(o => o.id && o.index >= 0)
 
-    if (sortIndex === -1) {
+    if (params.sortIndex === -1) {
       const randomGroupIndex = sortedGroups.findIndex(o => {
         if (o.index >= 0) return false
-        else return (o.title as string) > groupTitle
+        else return (o.title as string) > params.groupTitle
       })
+      Logger.log('getGroupIndex two', randomGroupIndex)
       if (randomGroupIndex === -1) return -1
-      Logger.log('getGroupIndex two', groupTitle, randomGroupIndex)
       return sortedGroups
         .slice(0, randomGroupIndex - 1)
         .reduce((prev, next) => prev + next.tabIds.size, 0)
     } else {
       const prevGroups = topGroups
-        .filter(o => o.index < sortIndex)
-      Logger.log('getGroupIndex three', groupTitle, prevGroups)
+        .filter(o => o.index < params.sortIndex)
+      Logger.log('getGroupIndex three', prevGroups)
       return prevGroups.reduce((prev, next) => prev + next.tabIds.size, 0)
     }
   }
@@ -146,8 +168,8 @@ class TabAssistant {
   /**
    * 获取所在的排序
    */
-  getSortedGroups() {
-    const groupList = Object.values(this.groups)
+  getSortedGroups(windowId: number) {
+    const groupList = Object.values(this.getGroupsByWindowId({ windowId }))
     groupList.sort((prev, next) => {
       if (prev.index === -1 && next.index === -1) {
         return (prev.title as string) > (next.title as string) ? 1 : -1
@@ -159,65 +181,83 @@ class TabAssistant {
         return prev.index - next.index
       }
     })
-    Logger.log('sorted group', groupList)
+    Logger.log('排序后的分组', groupList)
 
     return groupList
   }
 
   /** 将标签添加到group */
-  async addTabToGroup(tabId: number, url: string, syncToBrowser = false) {
-    const { groupTitle, groupColor, sortIndex } = this.getGroupTitleByUrl(url)
+  addTabToGroup(tabInfo: number, syncToBrowser: boolean): void
+  addTabToGroup(tabInfo: chrome.tabs.Tab, syncToBrowser: boolean): void
+  async addTabToGroup(tabInfoOrTabId: number | chrome.tabs.Tab, syncToBrowser = false) {
+    let tabInfo: chrome.tabs.Tab = typeof tabInfoOrTabId === 'number'
+      ? await chrome.tabs.get(tabInfoOrTabId)
+      : tabInfoOrTabId
+    if (!tabInfo.url || !tabInfo.id) return;
 
-    Logger.log('匹配到的存在的组1', url, groupTitle, JSON.parse(JSON.stringify(this.groups)))
+    const { groupTitle, groupColor, sortIndex } = this.getGroupTitleByUrl(tabInfo.url)
+    const groupInfo = this.getGroupByWindowIdAndTitle({
+      windowId: tabInfo.windowId,
+      groupTitle
+    })
+    Logger.log('添加Tab到分组，Tab信息', cloneDeep(groupInfo), cloneDeep(tabInfo))
 
-    const groupInfo = this.groups[groupTitle]
-
-    if (groupInfo) {
-      Logger.log('匹配到的存在的组1', groupInfo.id)
-      this.groups[groupTitle].tabIds.add(tabId)
+    if (groupInfo.title) {
+      Logger.log('添加Tab到分组，匹配到分组')
+      groupInfo.tabIds.add(tabInfo.id)
 
       if (syncToBrowser) {
         const groupId = await chrome.tabs.group({
           groupId: groupInfo.id,
-          tabIds: tabId
+          tabIds: tabInfo.id
         })
-        Logger.log('匹配到的存在的组2', groupId)
+        Logger.log('添加到分组，同步到浏览器', groupId)
         if (!groupInfo.id) {
-          this.groups[groupTitle].id = groupId
-          Logger.log('匹配到的存在的组3')
+          Logger.log('添加到分组，分组不存在则更新分组相关信息', groupId)
+          groupInfo.id = groupId
           await chrome.tabGroups.update(groupId, {
             title: groupInfo.title,
             collapsed: groupInfo.collapsed,
             color: groupInfo.color
           })
-          Logger.log('匹配到的存在的组4')
           await chrome.tabGroups.move(groupId, {
-            index: this.getGroupIndex(groupInfo.index, groupTitle)
+            index: this.getGroupIndex({
+              groupTitle,
+              sortIndex: groupInfo.index,
+              windowId: tabInfo.windowId
+            })
           })
         }
       }
     } else {
-      Logger.log('匹配到不存在的组')
-      this.groups[groupTitle] = {
+      Logger.log('添加Tab到分组，未匹配到分组')
+      Object.assign(groupInfo, {
         collapsed: false,
         title: groupTitle,
         color: groupColor,
-        tabIds: new Set([tabId]),
-        index: sortIndex ?? -1
-      }
+        tabIds: new Set([tabInfo.id]),
+        index: sortIndex ?? -1,
+        windowId: tabInfo.windowId
+      })
 
       if (syncToBrowser) {
-        const groupId = await chrome.tabs.group({ tabIds: tabId })
-        this.groups[groupTitle].id = groupId
+        const groupId = await chrome.tabs.group({ tabIds: tabInfo.id })
+        groupInfo.id = groupId
 
-        const { title, color, index, collapsed } = this.groups[groupTitle]
-        Logger.log('匹配到的组2', this.groups[groupTitle])
+        const { title, color, index, collapsed } = groupInfo
+        Logger.log('匹配不到分组', groupInfo)
         await chrome.tabGroups.update(groupId, { title, collapsed, color })
 
-        chrome.tabGroups.move(groupId, { index: this.getGroupIndex(index, groupTitle) })
+        chrome.tabGroups.move(groupId, {
+          index: this.getGroupIndex({
+            groupTitle,
+            sortIndex: index,
+            windowId: tabInfo.windowId
+          })
+        })
       }
     }
-    return this.groups[groupTitle]
+    return groupInfo
   }
 
   /**
@@ -260,73 +300,78 @@ class TabAssistant {
   /**
    * 标签添加时进行移动
    */
-  onTabAdded(tabId: number, changeInfo: chrome.tabs.TabChangeInfo) {
+  async onTabAdded(tabId: number, changeInfo: chrome.tabs.TabChangeInfo) {
     if (changeInfo.url) {
       Logger.log('对标签添加到分组', changeInfo.url)
-      this.addTabToGroup(tabId, changeInfo.url as string, true)
+      this.addTabToGroup({
+        ...(await chrome.tabs.get(tabId)),
+        url: changeInfo.url,
+      }, true)
     }
   }
 
   /** 标签移除时更新数据 */
-  onTabRemoved(tabId: number, removeInfo: chrome.tabs.TabRemoveInfo) {
-    for (const group of this.getSortedGroups()) {
-      if (group.tabIds.has(tabId)) {
+  async onTabRemoved(tabId: number, removeInfo: chrome.tabs.TabRemoveInfo) {
+    for (const group of this.getSortedGroups(removeInfo.windowId)) {
+      if (group.tabIds?.has?.(tabId)) {
         Logger.log('onTabRemove', group.title, tabId)
-        const tabIds = new Set(group.tabIds)
-        tabIds.delete(tabId)
-        this.groups[group.title ?? ''].tabIds = tabIds
+        group.tabIds.delete(tabId)
       }
     }
   }
 
   /** 分组移除时更新数据 */
   onGroupRemoved(group: chrome.tabGroups.TabGroup) {
-    const groupTitle = this.getSortedGroups().find(o => o.title === group.title)?.title
-    Logger.log('onGroupRemove', group, groupTitle, JSON.parse(JSON.stringify(this.groups)))
-    if (groupTitle) this.groups[groupTitle].id = undefined
+    const groupInfo = this.getGroupByWindowIdAndTitle({
+      windowId: group.windowId,
+      groupTitle: group.title || ''
+    })
+    Logger.log('onGroupRemove', groupInfo)
+    if (groupInfo.id && groupInfo.tabIds) {
+      groupInfo.id = undefined
+      groupInfo.tabIds.clear()
+    }
   }
 
   /** 分组更新时更新分组数据 */
   onGroupUpdated(group: chrome.tabGroups.TabGroup) {
-    const groupTitle = this.getSortedGroups().find(o => o.title === group.title)?.title
-    Logger.log('onGroupUpdated', group, groupTitle, JSON.parse(JSON.stringify(this.groups)))
-    if (groupTitle) {
-      this.groups[groupTitle] = {
-        ...this.groups[groupTitle],
+    const groupInfo = this.getGroupByWindowIdAndTitle({
+      windowId: group.windowId,
+      groupTitle: group.title || ''
+    })
+    Logger.log('onGroupUpdated', groupInfo)
+    if (groupInfo.id) {
+      Object.assign(groupInfo, {
         title: group.title,
         color: group.color,
         id: group.id,
         collapsed: group.collapsed
-      }
+      })
     }
   }
-}
 
-/** 规则组 */
-// const Rules: RuleItem[] = [
-//   {
-//     name: '谷歌Chrome开发者',
-//     groupTitle: '谷歌开发者',
-//     matchType: MatchTypeEnum.Domain,
-//     matchContent: 'https://developer.chrome.com',
-//     sortIndex: 1,
-//   },
-//   {
-//     name: '知乎',
-//     groupTitle: '知乎',
-//     matchType: MatchTypeEnum.RegExp,
-//     matchContent: 'zhihu.com',
-//     sortIndex: 2,
-//   },
-//   {
-//     name: 'GitHub',
-//     groupTitle: 'GitHub',
-//     groupColor: 'cyan',
-//     matchType: MatchTypeEnum.RegExp,
-//     matchContent: 'github.com',
-//     sortIndex: 3,
-//   }
-// ]
+  /**
+   * 获取窗口的分组信息
+   */
+  getGroupsByWindowId(params: { windowId: number }) {
+    if (!this.groups[params.windowId]) {
+      this.groups[params.windowId] = {}
+    }
+    return this.groups[params.windowId]
+  }
+  /**
+   * 获取分组信息
+   */
+  getGroupByWindowIdAndTitle(params: { windowId: number; groupTitle: string }) {
+    if (!this.groups[params.windowId]) {
+      this.groups[params.windowId] = {}
+    }
+    if (!this.groups[params.windowId][params.groupTitle]) {
+      this.groups[params.windowId][params.groupTitle] = {} as Groups[number]
+    }
+    return this.groups[params.windowId][params.groupTitle]
+  }
+}
 
 async function main() {
   const storage = await chrome.storage.sync
