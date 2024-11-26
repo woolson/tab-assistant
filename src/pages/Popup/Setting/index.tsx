@@ -45,7 +45,7 @@ export const Setting = memo(() => {
             allowClear
             open={false}
             mode="tags"
-            placeholder="输入自定义标签，按 Enter 确认"
+            placeholder="输入自定义忽略词，按 Enter 确认"
             style={{ width: "100%" }}
             options={defaultOptions}
           />

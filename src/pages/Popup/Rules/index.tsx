@@ -95,7 +95,13 @@ const Rules: React.FC = () => {
   const [form] = useForm<RuleItem>()
 
   const columns: ColumnsType<RuleItem> = [
-    { key: 'sort', fixed: 'left', align: 'center', width: 40, render: () => <DragHandle /> },
+    {
+      key: 'sort',
+      fixed: 'left',
+      align: 'center',
+      width: 40,
+      render: () => <DragHandle />
+    },
     {
       title: '分组标题',
       fixed: 'left',
@@ -108,15 +114,9 @@ const Rules: React.FC = () => {
       width: 80,
       render(value) {
         const data = ['域名', '正则'][value]
-        return <Tag color={['red', 'green'][value]}>{data}</Tag>
+        return <Tag color={['blue', 'green'][value]}>{data}</Tag>
       },
     },
-    // {
-    //   title: '优先级',
-    //   width: 70,
-    //   dataIndex: 'priority',
-    //   render: value => <span className="u-mono">{value}</span>
-    // },
     {
       title: '匹配内容',
       dataIndex: 'matchContent',
@@ -263,7 +263,10 @@ const Rules: React.FC = () => {
             components={{
               body: { row: TableRow },
             }}
-            scroll={{ x: 'max-content' }}
+            locale={{
+              emptyText: '暂无规则'
+            }}
+            scroll={{ x: 'max-content', y: 410 }}
           />
         </SortableContext>
       </DndContext>
