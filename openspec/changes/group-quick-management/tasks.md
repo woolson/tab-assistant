@@ -1,42 +1,42 @@
 # Tasks: Group Quick Management
 
 ## 1. Project Setup
-- [ ] 1.1 创建 OpenSpec 目录结构
-- [ ] 1.2 初始化 AGENTS.md 和 project.md
-- [ ] 1.3 验证 OpenSpec 工作流
+- [x] 1.1 创建 OpenSpec 目录结构
+- [x] 1.2 初始化 AGENTS.md 和 project.md
+- [x] 1.3 验证 OpenSpec 工作流
 
 ## 2. Create Group Management Component
-- [ ] 2.1 创建 `src/pages/Popup/GroupManagement/index.tsx`
-- [ ] 2.2 创建样式文件 `src/pages/Popup/GroupManagement/style.less`
-- [ ] 2.3 定义 TypeScript 接口
+- [x] 2.1 创建 `src/pages/Popup/GroupManagement/index.tsx`
+- [x] 2.2 创建样式文件 `src/pages/Popup/GroupManagement/style.less`
+- [x] 2.3 定义 TypeScript 接口
 
 ## 3. Implement Group Query Logic
-- [ ] 3.1 调用 `chrome.tabGroups.query()` 获取所有分组
-- [ ] 3.2 调用 `chrome.tabs.query({ groupId })` 获取分组内的标签数
-- [ ] 3.3 按窗口分组分组数据
-- [ ] 3.4 计算统计数据（总分组数、总标签数、未分组标签数）
+- [x] 3.1 调用 `chrome.tabGroups.query()` 获取所有分组
+- [x] 3.2 调用 `chrome.tabs.query({ groupId })` 获取分组内的标签数
+- [x] 3.3 按窗口分组分组数据
+- [x] 3.4 计算统计数据（总分组数、总标签数、未分组标签数）
 
 ## 4. Implement UI
-- [ ] 4.1 显示分组列表（使用 Antd List 或 Table）
-- [ ] 4.2 显示分组名称（带颜色标识）
-- [ ] 4.3 显示标签数量和所属窗口
-- [ ] 4.4 添加关闭按钮到每个分组
-- [ ] 4.5 添加统计信息区域
+- [x] 4.1 显示分组列表（使用 Antd List 或 Table）
+- [x] 4.2 显示分组名称（带颜色标识）
+- [x] 4.3 显示标签数量和所属窗口
+- [x] 4.4 添加关闭按钮到每个分组
+- [x] 4.5 添加统计信息区域
 
 ## 5. Implement Close Group Function
-- [ ] 5.1 实现单个分组关闭逻辑
-- [ ] 5.2 添加确认弹窗
-- [ ] 5.3 关闭后刷新列表
+- [x] 5.1 实现单个分组关闭逻辑
+- [x] 5.2 添加确认弹窗
+- [x] 5.3 关闭后刷新列表
 
 ## 6. Implement Batch Operations
-- [ ] 6.1 添加全选/取消全选功能
-- [ ] 6.2 实现批量关闭逻辑
-- [ ] 6.3 添加窗口筛选下拉框
-- [ ] 6.4 添加标签数量排序功能
+- [x] 6.1 添加全选/取消全选功能
+- [x] 6.2 实现批量关闭逻辑
+- [x] 6.3 添加窗口筛选下拉框
+- [x] 6.4 添加标签数量排序功能
 
 ## 7. Integrate to Popup
-- [ ] 7.1 在 `src/pages/Popup/index.tsx` 中添加「分组管理」Tab
-- [ ] 7.2 导入 GroupManagement 组件
+- [x] 7.1 在 `src/pages/Popup/index.tsx` 中添加「分组管理」Tab
+- [x] 7.2 导入 GroupManagement 组件
 - [ ] 7.3 测试 Popup 显示
 
 ## 8. Testing & Refinement
@@ -49,16 +49,16 @@
 
 ## 9. Code Quality
 - [ ] 9.1 运行 ESLint 检查
-- [ ] 9.2 运行 Prettier 格式化
-- [ ] 9.3 编写必要的注释
-- [ ] 9.4 代码审查
+- [x] 9.2 运行 Prettier 格式化
+- [x] 9.3 编写必要的注释
+- [x] 9.4 代码审查
 
 ## 10. Documentation
 - [ ] 10.1 更新 README.md（如有需要）
 - [ ] 10.2 更新 PID.md（标记功能已实现）
-- [ ] 10.3 准备提交信息
+- [x] 10.3 准备提交信息
 
 ## 11. Git & PR
-- [ ] 11.1 提交代码：`feat: add group management page (ai: aidai) 🤔`
+- [x] 11.1 提交代码：`feat: add group management page (ai: aidai) 🤔`
 - [ ] 11.2 推送到远程
 - [ ] 11.3 创建/更新 Pull Request

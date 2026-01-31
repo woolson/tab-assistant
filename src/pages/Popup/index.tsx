@@ -5,6 +5,7 @@ import zhCN from 'antd/es/locale/zh_CN';
 import Rules from './Rules';
 import About from './About';
 import Setting from './Setting';
+import GroupManagement from './GroupManagement';
 // import Useful from './Usefal';
 import Header from './Header';
 import './index.less';
@@ -15,6 +16,11 @@ const items = [
     key: 'rules',
     label: '分组规则',
     children: <Rules />,
+  },
+  {
+    key: 'groups',
+    label: '分组管理',
+    children: <GroupManagement />,
   },
   // {
   //   key: 'useful',
@@ -34,31 +40,42 @@ const items = [
 ];
 
 const App = () => {
-  const [isDarkMode, setIsDarkMode] = useState(window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const [isDarkMode, setIsDarkMode] = useState(
+    window.matchMedia('(prefers-color-scheme: dark)').matches
+  );
 
   // 检测当前是否为暗色模式
   const checkDarkMode = useCallback(() => {
-    const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const isDarkMode = window.matchMedia(
+      '(prefers-color-scheme: dark)'
+    ).matches;
     setIsDarkMode(isDarkMode);
-  }, [])
+  }, []);
 
   useEffect(() => {
     // 初始化时检查一次
     checkDarkMode();
     // 监听系统主题变化
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (event) => {
-      checkDarkMode();
-    });
+    window
+      .matchMedia('(prefers-color-scheme: dark)')
+      .addEventListener('change', (event) => {
+        checkDarkMode();
+      });
 
     return () => {
       // 移除监听
-      window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', checkDarkMode);
-    }
-  }, [])
+      window
+        .matchMedia('(prefers-color-scheme: dark)')
+        .removeEventListener('change', checkDarkMode);
+    };
+  }, []);
 
   return (
     <div style={{ background: isDarkMode ? '#111' : 'white', height: '100%' }}>
-      <ConfigProvider locale={zhCN} theme={{ algorithm: isDarkMode ? theme.darkAlgorithm : undefined }}>
+      <ConfigProvider
+        locale={zhCN}
+        theme={{ algorithm: isDarkMode ? theme.darkAlgorithm : undefined }}
+      >
         <Header />
 
         <Tabs
@@ -69,10 +86,9 @@ const App = () => {
         />
       </ConfigProvider>
     </div>
-  )
-}
+  );
+};
 
-render(<App />, window.document.querySelector('#app-container')
-);
+render(<App />, window.document.querySelector('#app-container'));
 
 if (module.hot) module.hot.accept();
