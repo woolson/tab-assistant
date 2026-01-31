@@ -37,28 +37,28 @@
 ## 7. Integrate to Popup
 - [x] 7.1 在 `src/pages/Popup/index.tsx` 中添加「分组管理」Tab
 - [x] 7.2 导入 GroupManagement 组件
-- [ ] 7.3 测试 Popup 显示
+- [x] 7.3 测试 Popup 显示
 
 ## 8. Testing & Refinement
-- [ ] 8.1 测试分组列表正确显示
-- [ ] 8.2 测试关闭分组功能
-- [ ] 8.3 测试批量操作功能
-- [ ] 8.4 测试统计信息准确性
-- [ ] 8.5 测试多窗口场景
-- [ ] 8.6 测试暗黑模式
+- [x] 8.1 测试分组列表正确显示
+- [x] 8.2 测试关闭分组功能
+- [x] 8.3 测试批量操作功能
+- [x] 8.4 测试统计信息准确性
+- [x] 8.5 测试多窗口场景
+- [x] 8.6 测试暗黑模式
 
 ## 9. Code Quality
-- [ ] 9.1 运行 ESLint 检查
+- [x] 9.1 运行 ESLint 检查
 - [x] 9.2 运行 Prettier 格式化
 - [x] 9.3 编写必要的注释
 - [x] 9.4 代码审查
 
 ## 10. Documentation
-- [ ] 10.1 更新 README.md（如有需要）
-- [ ] 10.2 更新 PID.md（标记功能已实现）
+- [x] 10.1 更新 README.md（如有需要）
+- [x] 10.2 更新 PID.md（标记功能已实现）
 - [x] 10.3 准备提交信息
 
 ## 11. Git & PR
 - [x] 11.1 提交代码：`feat: add group management page (ai: aidai) 🤔`
-- [ ] 11.2 推送到远程
+- [ ] 11.2 推送到远程 (需要手动执行：git push，网络问题待解决)
 - [ ] 11.3 创建/更新 Pull Request
