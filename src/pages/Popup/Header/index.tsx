@@ -1,6 +1,7 @@
 import React from 'react';
 import Logo from '@/assets/img/icon.svg';
 import { Row, theme } from 'antd';
+import { useI18n } from '@/common/i18n';
 
 const headStyle = {
   fontSize: 24,
@@ -12,6 +13,7 @@ const headStyle = {
 
 export const Header = () => {
   const { token } = theme.useToken();
+  const { t } = useI18n();
 
   return (
     <Row
@@ -20,7 +22,7 @@ export const Header = () => {
       justify="space-between">
       <Row align="middle">
         <img src={Logo} style={{ height: 40 }} />
-        <h1 style={headStyle}>TabAssistant 标签分组助手</h1>
+        <h1 style={headStyle}>{t('appTitle')}</h1>
       </Row>
     </Row>
   )

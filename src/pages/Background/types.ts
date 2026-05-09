@@ -1,4 +1,5 @@
 export type GroupColorEnum = chrome.tabGroups.ColorEnum
+export type Language = 'zh-CN' | 'en-US'
 
 /** 规则信息 */
 export interface RuleItem {
@@ -55,5 +56,9 @@ export interface TabAssistantConfig {
      * 移除域名中的关键字
      */
     removeKeywordList: string[]
+    /**
+     * 弹窗界面语言
+     */
+    language?: Language
   }
 }

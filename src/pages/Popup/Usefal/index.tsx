@@ -1,11 +1,14 @@
 import React from "react"
-import { Button, Result } from "antd"
+import { Result } from "antd"
+import { useI18n } from "@/common/i18n";
 
 export const Useful = () => {
+  const { t } = useI18n();
+
   return (
     <Result
       className="tab-assistant-about"
-      subTitle="规则自动化分组浏览器标签页"
+      subTitle={t('appDescription')}
     />
   )
 }

@@ -1,12 +1,13 @@
 import { ConfigProvider, Spin, Tabs, theme } from 'antd';
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { render } from 'react-dom';
-import zhCN from 'antd/es/locale/zh_CN';
 import TabOverview from './TabOverview';
 // import Useful from './Usefal';
 import Header from './Header';
 import './index.less';
 import '../../common/styles/font.less';
+import { StorageKeyEnum } from '@/common/const';
+import { antdLocales, getBrowserLanguage, I18nProvider, Language, useI18n } from '@/common/i18n';
 
 const Rules = lazy(() => import('./Rules'));
 const Setting = lazy(() => import('./Setting'));
@@ -20,17 +21,41 @@ const LazyTabPane: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 const App = () => {
   const [isDarkMode, setIsDarkMode] = useState(window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const [language, setLanguage] = useState<Language>(() => getBrowserLanguage());
   const mediaQuery = useMemo(() => window.matchMedia('(prefers-color-scheme: dark)'), []);
+
+  useEffect(() => {
+    chrome.storage.sync.get([StorageKeyEnum.SETTING]).then(res => {
+      const storedLanguage = res?.[StorageKeyEnum.SETTING]?.language;
+      if (storedLanguage === 'zh-CN' || storedLanguage === 'en-US') {
+        setLanguage(storedLanguage);
+      }
+    });
+  }, []);
+
+  return (
+    <I18nProvider language={language} setLanguage={setLanguage}>
+      <PopupApp isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} mediaQuery={mediaQuery} />
+    </I18nProvider>
+  )
+}
+
+const PopupApp: React.FC<{
+  isDarkMode: boolean;
+  setIsDarkMode: (isDarkMode: boolean) => void;
+  mediaQuery: MediaQueryList;
+}> = ({ isDarkMode, setIsDarkMode, mediaQuery }) => {
+  const { language, t } = useI18n();
 
   const items = useMemo(() => [
     {
       key: 'tabOverview',
-      label: '当前标签',
+      label: t('tabCurrent'),
       children: <TabOverview />,
     },
     {
       key: 'rules',
-      label: '分组规则',
+      label: t('tabRules'),
       children: <LazyTabPane><Rules /></LazyTabPane>,
     },
     // {
@@ -40,15 +65,15 @@ const App = () => {
     // },
     {
       key: 'setting',
-      label: '其他设置',
+      label: t('tabSettings'),
       children: <LazyTabPane><Setting /></LazyTabPane>,
     },
     {
       key: 'about',
-      label: '关于插件',
+      label: t('tabAbout'),
       children: <LazyTabPane><About /></LazyTabPane>,
     },
-  ], []);
+  ], [t]);
 
   // 检测当前是否为暗色模式
   const checkDarkMode = useCallback(() => {
@@ -69,7 +94,7 @@ const App = () => {
 
   return (
     <div className="popup-app" style={{ background: isDarkMode ? '#111' : 'white' }}>
-      <ConfigProvider locale={zhCN} theme={{ algorithm: isDarkMode ? theme.darkAlgorithm : undefined }}>
+      <ConfigProvider locale={antdLocales[language]} theme={{ algorithm: isDarkMode ? theme.darkAlgorithm : undefined }}>
         <Header />
 
         <Tabs

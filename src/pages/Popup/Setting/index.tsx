@@ -1,16 +1,17 @@
 import React, { memo, useEffect, useState } from "react"
-import { Button, Form, message, Row, Select, Switch, Tooltip } from "antd"
+import { Button, Form, message, Row, Segmented, Select } from "antd"
 import { EventNameEnum, StorageKeyEnum } from "../../../common/const"
 import { useCallback } from "react"
 import { useForm } from "antd/es/form/Form"
 import { Logger } from "../../Background/helpers"
 import "./style.less"
-import { QuestionCircleOutlined } from "@ant-design/icons"
 import { TabAssistantConfig } from "@/pages/Background/types"
+import { languageOptions, useI18n } from "@/common/i18n"
 
 export const Setting = memo(() => {
   const [form] = useForm<TabAssistantConfig['setting']>()
   const [defaultOptions, setDefaultOptions] = useState([])
+  const { language, setLanguage, t } = useI18n();
 
   useEffect(() => {
     chrome.storage.sync.get([StorageKeyEnum.SETTING])
@@ -19,40 +20,58 @@ export const Setting = memo(() => {
         if (res?.[StorageKeyEnum.SETTING]) {
           setDefaultOptions(res?.[StorageKeyEnum.SETTING]?.removeKeywordList?.map((o: string) => ({ value: o, label: o })))
         }
-        form.setFieldsValue({ ...(res?.[StorageKeyEnum.SETTING] || {}) })
+        form.setFieldsValue({ language, ...(res?.[StorageKeyEnum.SETTING] || {}) })
       })
-  }, [])
+  }, [form, language])
 
   const onFinish = useCallback(async (formValue) => {
     Logger.log('modify setting', formValue);
 
     await chrome.storage.sync.set({ [StorageKeyEnum.SETTING]: formValue })
+    if (formValue.language) setLanguage(formValue.language)
     chrome.runtime.sendMessage(EventNameEnum.RELOAD_RULE, response => {
       if (response === EventNameEnum.RELOAD_SUCC) {
-        message.success('更新成功')
+        message.success(t('updateSuccess'))
       }
     })
-  }, [])
+  }, [setLanguage, t])
 
   return (
     <div className="tab-assistant-setting">
-      <Form form={form} onFinish={onFinish}>
+      <Form
+        form={form}
+        onFinish={onFinish}
+        labelAlign="right"
+        labelCol={{ flex: '180px' }}
+      >
         <Form.Item
-          label="分组名忽略词"
+          label={t('languageSetting')}
+          name="language"
+          extra={t('languageSettingExtra')}>
+          <Segmented
+            options={languageOptions.map(option => ({
+              value: option.value,
+              label: t(option.labelKey),
+            }))}
+          />
+        </Form.Item>
+
+        <Form.Item
+          label={t('groupNameIgnoreWords')}
           name="removeKeywordList"
-          extra="以域名命名分组时，会移除域名中对应的关键词，如：www.xxx.com 转换为 xxx.com。">
+          extra={t('groupNameIgnoreWordsExtra')}>
           <Select
             allowClear
             open={false}
             mode="tags"
-            placeholder="输入自定义忽略词，按 Enter 确认"
+            placeholder={t('ignoreWordsPlaceholder')}
             style={{ width: "100%" }}
             options={defaultOptions}
           />
         </Form.Item>
 
         <Row justify="end">
-          <Button htmlType="submit" type="primary">保存</Button>
+          <Button htmlType="submit" type="primary">{t('save')}</Button>
         </Row>
       </Form>
     </div>

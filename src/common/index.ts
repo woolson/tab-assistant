@@ -2,9 +2,9 @@ import { message } from "antd"
 import { EventNameEnum } from "./const"
 
 /** 重载规则 */
-export function reloadConfig() {
+export function reloadConfig(successMessage = '规则更新成功') {
   chrome.runtime.sendMessage(EventNameEnum.RELOAD_RULE, res => {
-    message.success('规则更新成功')
+    message.success(successMessage)
   })
 }
 

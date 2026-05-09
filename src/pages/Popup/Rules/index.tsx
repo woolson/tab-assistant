@@ -20,17 +20,9 @@ import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { CSS } from '@dnd-kit/utilities';
 import './style.less';
 import { DeleteOutlined, EditOutlined, HolderOutlined } from '@ant-design/icons';
+import { useI18n } from '@/common/i18n';
 
-const COLORS = [
-  { value: 'grey', label: '灰色' },
-  { value: 'blue', label: '蓝色' },
-  { value: 'red', label: '红色' },
-  { value: 'yellow', label: '黄色' },
-  { value: 'green', label: '绿色' },
-  { value: 'pink', label: '粉色' },
-  { value: 'purple', label: '紫色' },
-  { value: 'cyan', label: '青色' }
-]
+const COLOR_KEYS = ['grey', 'blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan'] as const;
 
 interface RowContextProps {
   setActivatorNodeRef?: (element: HTMLElement | null) => void;
@@ -90,9 +82,11 @@ const TableRow: React.FC<RowProps> = (props) => {
 const data: RuleItem[] = [];
 
 const Rules: React.FC = () => {
+  const { t } = useI18n();
   const [dataSource, setDataSource] = useState(data);
   const [editData, setEditData] = useState<Partial<RuleItem>>()
   const [form] = useForm<RuleItem>()
+  const colorOptions = useMemo(() => COLOR_KEYS.map(value => ({ value, label: t(value) })), [t]);
 
   const columns: ColumnsType<RuleItem> = [
     {
@@ -103,27 +97,27 @@ const Rules: React.FC = () => {
       render: () => <DragHandle />
     },
     {
-      title: '分组标题',
+      title: t('groupTitle'),
       fixed: 'left',
       dataIndex: 'name',
       className: 'drag-visible',
     },
     {
-      title: '匹配模式',
+      title: t('matchMode'),
       dataIndex: 'matchType',
       width: 80,
       render(value) {
-        const data = ['域名', '正则'][value]
+        const data = [t('domain'), t('regExp')][value]
         return <Tag color={['blue', 'green'][value]}>{data}</Tag>
       },
     },
     {
-      title: '匹配内容',
+      title: t('matchContent'),
       dataIndex: 'matchContent',
       render: value => <span className="u-mono">{value}</span>
     },
     {
-      title: '操作',
+      title: t('actions'),
       fixed: 'right',
       width: 58,
       align: 'center',
@@ -134,8 +128,8 @@ const Rules: React.FC = () => {
             type="text"
             size="small"
             icon={<EditOutlined />}
-            aria-label="编辑"
-            title="编辑"
+            aria-label={t('edit')}
+            title={t('edit')}
             onClick={() => {
               setEditData(record)
               form.setFieldsValue(record)
@@ -144,15 +138,15 @@ const Rules: React.FC = () => {
 
           <Popconfirm
             placement="left"
-            title="确认删除这个规则吗?"
+            title={t('deleteRuleConfirm')}
             onConfirm={() => handleDelete(record.sortIndex)}>
             <Button
               type="text"
               danger
               size="small"
               icon={<DeleteOutlined />}
-              aria-label="删除"
-              title="删除"
+              aria-label={t('delete')}
+              title={t('delete')}
             />
           </Popconfirm>
         </Space>
@@ -164,8 +158,8 @@ const Rules: React.FC = () => {
     const newData = dataSource.filter(item => item.sortIndex !== index);
     chrome.storage.sync.set({ [StorageKeyEnum.RULES]: newData })
       .then(() => setDataSource(newData))
-      .then(() => reloadConfig())
-  }, [dataSource]);
+      .then(() => reloadConfig(t('ruleUpdateSuccess')))
+  }, [dataSource, t]);
 
   /** 获取当前tab链接 */
   const getCurrentTabUrl = useCallback(async () => {
@@ -186,7 +180,7 @@ const Rules: React.FC = () => {
         const newDataSource = arrayMove(prevState, activeIndex, overIndex).map((item, index) => ({ ...item, sortIndex: index }));
 
         chrome.storage.sync.set({ [StorageKeyEnum.RULES]: newDataSource })
-          .then(reloadConfig)
+          .then(() => reloadConfig(t('ruleUpdateSuccess')))
 
         return newDataSource;
       });
@@ -219,7 +213,7 @@ const Rules: React.FC = () => {
         setDataSource(newDataSource)
         setEditData(undefined)
         form.resetFields()
-        reloadConfig()
+        reloadConfig(t('ruleUpdateSuccess'))
       })
   }
 
@@ -256,12 +250,12 @@ const Rules: React.FC = () => {
             })
             setEditData({})
           }}>
-          添加规则</Button>
+          {t('addRule')}</Button>
         <Button
           onClick={() => {
             reloadRules()
-            reloadConfig()
-          }}>刷新规则</Button>
+            reloadConfig(t('ruleUpdateSuccess'))
+          }}>{t('refreshRules')}</Button>
       </Space>
       <DndContext
         onDragEnd={onDragEnd}
@@ -278,14 +272,14 @@ const Rules: React.FC = () => {
               body: { row: TableRow },
             }}
             locale={{
-              emptyText: '暂无规则'
+              emptyText: t('noRules')
             }}
             scroll={{ x: 'max-content', y: 410 }}
           />
         </SortableContext>
       </DndContext>
       <Drawer
-        title={editData?.ruleId ? '编辑规则' : '新建规则'}
+        title={editData?.ruleId ? t('editRule') : t('newRule')}
         width={500}
         zIndex={99999}
         open={!!editData}
@@ -293,8 +287,8 @@ const Rules: React.FC = () => {
         footer={
           <Row justify="end">
             <Space>
-              <Button onClick={closeModal}>取消</Button>
-              <Button type="primary" onClick={() => onFormOk()}>确认</Button>
+              <Button onClick={closeModal}>{t('cancel')}</Button>
+              <Button type="primary" onClick={() => onFormOk()}>{t('confirm')}</Button>
             </Space>
           </Row>
         }
@@ -303,42 +297,42 @@ const Rules: React.FC = () => {
           <Form.Item
             required
             className="u-mb-15"
-            label="分组标题"
+            label={t('groupTitle')}
             name="name"
-            rules={[{ required: true, message: "规则名称必填" }]}>
-            <Input placeholder='请输入分组标题' allowClear />
+            rules={[{ required: true, message: t('ruleNameRequired') }]}>
+            <Input placeholder={t('groupTitlePlaceholder')} allowClear />
           </Form.Item>
           {/* <Form.Item className="u-mb-15" label="分组标题" name="groupTitle">
             <Input placeholder='请输入' allowClear />
           </Form.Item> */}
-          <Form.Item className="u-mb-15" label="优先级" name="priority" hidden>
+          <Form.Item className="u-mb-15" label={t('priority')} name="priority" hidden>
             <Input type="number" step={1} min={0} defaultValue={0} />
           </Form.Item>
-          <Form.Item className="u-mb-15" label="分组颜色" name="groupColor">
-            <Select options={COLORS} placeholder="请选择分组颜色" />
+          <Form.Item className="u-mb-15" label={t('groupColor')} name="groupColor">
+            <Select options={colorOptions} placeholder={t('groupColorPlaceholder')} />
           </Form.Item>
-          <Form.Item className="u-mb-15" label="匹配模式" name="matchType" required rules={[{ required: true, message: "匹配模式必选" }]}>
+          <Form.Item className="u-mb-15" label={t('matchMode')} name="matchType" required rules={[{ required: true, message: t('matchModeRequired') }]}>
             <Radio.Group>
-              <Radio value={0}>按域名分组</Radio>
-              <Radio value={1}>按正则匹配</Radio>
+              <Radio value={0}>{t('matchByDomain')}</Radio>
+              <Radio value={1}>{t('matchByRegExp')}</Radio>
             </Radio.Group>
           </Form.Item>
           <Form.Item
             className="u-mb-15"
             required
-            label="匹配内容"
+            label={t('matchContent')}
             name="matchContent"
             style={{ marginBottom: 0 }}
-            rules={[{ required: true, message: "匹配内容必填" }]}
+            rules={[{ required: true, message: t('matchContentRequired') }]}
             extra={
               <>
-                <Button type="link" style={{ padding: 0 }} onClick={getCurrentTabUrl}>点击插入当前标签域名</Button>
-                ，匹配模式为按正则时支持填写正则表达式，如：(developer.chrome.com|chrome.google.com)
+                <Button type="link" style={{ padding: 0 }} onClick={getCurrentTabUrl}>{t('insertCurrentDomain')}</Button>
+                <span> {t('regExpMatchTip')}</span>
               </>
             }>
             <Input.TextArea
               autoSize={{ minRows: 2 }}
-              placeholder='请输入'
+              placeholder={t('inputPlaceholder')}
               allowClear
               styles={{ textarea: { fontFamily: 'PuHuiTi' } }}
             />

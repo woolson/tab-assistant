@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Button, message, Popconfirm, Space, Table, Tag, Tooltip } from 'antd';
+import { Button, message, Space, Table, Tag, Tooltip } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { Key } from 'antd/es/table/interface';
 import { CloseOutlined, LinkOutlined } from '@ant-design/icons';
 import './style.less';
+import { TranslationKey, useI18n } from '@/common/i18n';
 
 type RowType = 'group' | 'tab';
 
@@ -17,6 +18,7 @@ interface TabTreeRow {
   status?: chrome.tabs.Tab['status'];
   active?: boolean;
   pinned?: boolean;
+  index?: number;
   audible?: boolean;
   color?: chrome.tabGroups.ColorEnum;
   groupId?: number;
@@ -28,10 +30,19 @@ interface TabTreeRow {
   children?: TabTreeRow[];
 }
 
+interface ClosedTabSnapshot {
+  title: string;
+  url: string;
+  pinned?: boolean;
+  windowId?: number;
+  index?: number;
+}
+
 const GROUP_NONE_ID = chrome.tabGroups.TAB_GROUP_ID_NONE;
 const DEFAULT_GROUP_COLOR = 'grey';
 const NAME_COLUMN_WIDTH = 360;
-const COUNT_COLUMN_WIDTH = 56;
+const COUNT_COLUMN_WIDTH = 35;
+const ACTION_COLUMN_WIDTH = 30;
 
 const runAfterPopupOpened = (callback: () => void) => {
   let timeoutId: number | undefined;
@@ -51,23 +62,23 @@ const runAfterPopupOpened = (callback: () => void) => {
   };
 };
 
-const getTypeName = (tab: chrome.tabs.Tab) => {
-  if (tab.pinned) return '固定标签';
+const getTypeName = (tab: chrome.tabs.Tab, t: (key: TranslationKey) => string) => {
+  if (tab.pinned) return t('pinnedTab');
 
   try {
     const protocol = new URL(tab.url || '').protocol;
-    if (protocol === 'http:' || protocol === 'https:') return '网页';
-    if (protocol === 'chrome:') return '浏览器页面';
-    if (protocol === 'chrome-extension:') return '扩展页面';
-    if (protocol === 'file:') return '本地文件';
+    if (protocol === 'http:' || protocol === 'https:') return t('webPage');
+    if (protocol === 'chrome:') return t('browserPage');
+    if (protocol === 'chrome-extension:') return t('extensionPage');
+    if (protocol === 'file:') return t('localFile');
   } catch (error) {
-    return '其他';
+    return t('other');
   }
 
-  return '其他';
+  return t('other');
 };
 
-const getTabTitle = (tab: chrome.tabs.Tab) => tab.title || tab.url || '未命名标签页';
+const getTabTitle = (tab: chrome.tabs.Tab, t: (key: TranslationKey) => string) => tab.title || tab.url || t('unnamedTab');
 
 const getRowCount = (row: TabTreeRow) => row.rowType === 'group' ? row.count || 0 : 1;
 
@@ -103,14 +114,17 @@ const collectRowKeys = (rows: TabTreeRow[]) => {
 };
 
 const TabOverview: React.FC = () => {
+  const { t } = useI18n();
   const [dataSource, setDataSource] = useState<TabTreeRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedRowKeys, setExpandedRowKeys] = useState<React.Key[]>([]);
   const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([]);
   const [batchMode, setBatchMode] = useState(false);
   const [tableScrollY, setTableScrollY] = useState(340);
+  const [recentlyClosedTab, setRecentlyClosedTab] = useState<ClosedTabSnapshot>();
   const containerRef = useRef<HTMLDivElement>(null);
   const initializedRef = useRef(false);
+  const restoreTimerRef = useRef<number>();
 
   const reloadTabs = useCallback(async () => {
     setLoading(true);
@@ -145,8 +159,8 @@ const TabOverview: React.FC = () => {
           const children = sortedTabs.map(tab => ({
             key: `tab-${tab.id}`,
             rowType: 'tab' as RowType,
-            title: getTabTitle(tab),
-            typeName: getTypeName(tab),
+            title: getTabTitle(tab, t),
+            typeName: getTypeName(tab, t),
             tabId: tab.id,
             url: tab.url,
             favIconUrl: tab.favIconUrl,
@@ -154,6 +168,7 @@ const TabOverview: React.FC = () => {
             status: tab.status,
             active: tab.active,
             pinned: tab.pinned,
+            index: tab.index,
             audible: tab.audible,
           }));
           children.forEach(tab => {
@@ -163,7 +178,7 @@ const TabOverview: React.FC = () => {
           return {
             key: groupKey,
             rowType: 'group' as RowType,
-            title: group?.title || '未分组',
+            title: group?.title || t('ungrouped'),
             color,
             groupId,
             collapsed: group?.collapsed,
@@ -195,6 +210,18 @@ const TabOverview: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  }, [t]);
+
+  const showRestoreButton = useCallback((tab: ClosedTabSnapshot) => {
+    if (restoreTimerRef.current !== undefined) {
+      window.clearTimeout(restoreTimerRef.current);
+    }
+
+    setRecentlyClosedTab(tab);
+    restoreTimerRef.current = window.setTimeout(() => {
+      setRecentlyClosedTab(undefined);
+      restoreTimerRef.current = undefined;
+    }, 3000);
   }, []);
 
   const handleCloseRecord = useCallback(async (record: TabTreeRow) => {
@@ -203,10 +230,51 @@ const TabOverview: React.FC = () => {
       : record.tabId !== undefined ? [record.tabId] : [];
     if (!tabIds.length) return;
 
+    const closedTab = record.rowType === 'tab' && record.url
+      ? {
+        title: record.title,
+        url: record.url,
+        pinned: record.pinned,
+        index: record.index,
+      }
+      : undefined;
+
     await chrome.tabs.remove(tabIds);
-    message.success(record.rowType === 'group' ? '分组标签页已关闭' : '网页已关闭');
+    if (closedTab) {
+      showRestoreButton(closedTab);
+    } else {
+      message.success(t('groupedTabsClosed'));
+    }
     reloadTabs();
-  }, [reloadTabs]);
+  }, [reloadTabs, showRestoreButton, t]);
+
+  const handleRestoreClosedTab = useCallback(async () => {
+    if (!recentlyClosedTab) return;
+
+    if (restoreTimerRef.current !== undefined) {
+      window.clearTimeout(restoreTimerRef.current);
+      restoreTimerRef.current = undefined;
+    }
+
+    setRecentlyClosedTab(undefined);
+
+    try {
+      await chrome.tabs.create({
+        url: recentlyClosedTab.url,
+        active: true,
+        pinned: recentlyClosedTab.pinned,
+        index: recentlyClosedTab.index,
+      });
+    } catch (error) {
+      await chrome.tabs.create({
+        url: recentlyClosedTab.url,
+        active: true,
+        pinned: recentlyClosedTab.pinned,
+      });
+    }
+
+    reloadTabs();
+  }, [recentlyClosedTab, reloadTabs]);
 
   const handleDeleteSelected = useCallback(async () => {
     const tabIds = collectSelectedTabIds(dataSource, selectedRowKeys);
@@ -215,9 +283,9 @@ const TabOverview: React.FC = () => {
     await chrome.tabs.remove(tabIds);
     setSelectedRowKeys([]);
     setBatchMode(false);
-    message.success('选中的标签页已关闭');
+    message.success(t('selectedTabsClosed'));
     reloadTabs();
-  }, [dataSource, selectedRowKeys, reloadTabs]);
+  }, [dataSource, selectedRowKeys, reloadTabs, t]);
 
   const handleBatchButtonClick = useCallback(() => {
     if (!batchMode) {
@@ -260,7 +328,7 @@ const TabOverview: React.FC = () => {
 
   const columns = useMemo<ColumnsType<TabTreeRow>>(() => [
     {
-      title: '名称',
+      title: t('name'),
       dataIndex: 'title',
       fixed: 'left',
       width: NAME_COLUMN_WIDTH,
@@ -281,7 +349,7 @@ const TabOverview: React.FC = () => {
                   <span className={`tab-overview-tab-favicon${record.favIconUrl ? '' : ' tab-overview-tab-favicon-empty'}`}>
                     {record.favIconUrl && <img src={record.favIconUrl} alt="" />}
                   </span>
-                  {record.active && <Tag color="green">当前</Tag>}
+                  {record.active && <Tag color="green">{t('current')}</Tag>}
                   <span className="tab-overview-tab-title" title={value}>{value}</span>
                 </span>
                 {record.url && (
@@ -303,7 +371,7 @@ const TabOverview: React.FC = () => {
       },
     },
     {
-      title: '数量',
+      title: t('count'),
       width: COUNT_COLUMN_WIDTH,
       fixed: 'left',
       className: 'tab-overview-count-cell',
@@ -313,36 +381,27 @@ const TabOverview: React.FC = () => {
         : null,
     },
     {
-      title: '操作',
+      title: t('actions'),
       fixed: 'right',
-      width: 58,
+      width: ACTION_COLUMN_WIDTH,
       align: 'center',
       className: 'tab-overview-action-cell',
       render: (_, record) => {
-        const confirmTitle = record.rowType === 'group'
-          ? '确认关闭这个分组下所有标签页吗?'
-          : '确认关闭这个网页吗?';
-
         return (
           <Space className="operations" onClick={event => event.stopPropagation()}>
-            <Popconfirm
-              placement="left"
-              title={confirmTitle}
-              onConfirm={() => handleCloseRecord(record)}
-            >
-              <Button
-                type="text"
-                danger
-                size="small"
-                icon={<CloseOutlined />}
-                aria-label="关闭"
-              />
-            </Popconfirm>
+            <Button
+              type="text"
+              danger
+              size="small"
+              icon={<CloseOutlined />}
+              aria-label={t('close')}
+              onClick={() => handleCloseRecord(record)}
+            />
           </Space>
         );
       },
     },
-  ], [handleCloseRecord]);
+  ], [handleCloseRecord, t]);
 
   const selectedTabCount = useMemo(
     () => collectSelectedTabIds(dataSource, selectedRowKeys).length,
@@ -382,6 +441,12 @@ const TabOverview: React.FC = () => {
     };
   }, [reloadTabs]);
 
+  useEffect(() => () => {
+    if (restoreTimerRef.current !== undefined) {
+      window.clearTimeout(restoreTimerRef.current);
+    }
+  }, []);
+
   useLayoutEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -408,28 +473,16 @@ const TabOverview: React.FC = () => {
     <div className="container tab-overview" ref={containerRef}>
       <Space style={{ position: 'absolute', right: 20, top: -55 }}>
         <Button onClick={() => updateAllGroupsCollapsed(allGroupsExpanded)}>
-          {allGroupsExpanded ? '全部折叠' : '全部展开'}
+          {allGroupsExpanded ? t('collapseAll') : t('expandAll')}
         </Button>
-        <Popconfirm
-          placement="left"
-          title={`确认关闭选中的 ${selectedTabCount} 个标签页吗?`}
-          disabled={!batchMode || !selectedTabCount}
-          onConfirm={handleDeleteSelected}
+        <Button
+          danger={batchMode && !!selectedTabCount}
+          onClick={handleBatchButtonClick}
         >
-          <Button
-            danger={batchMode && !!selectedTabCount}
-            onClick={event => {
-              if (batchMode && selectedTabCount) return;
-              event.preventDefault();
-              handleBatchButtonClick();
-            }}
-          >
-            {batchMode && selectedTabCount ? '关闭选中' : '批量操作'}
-          </Button>
-        </Popconfirm>
+          {batchMode && selectedTabCount ? t('closeSelected') : t('batchActions')}
+        </Button>
       </Space>
       <Table
-        size="small"
         pagination={false}
         loading={loading}
         dataSource={dataSource}
@@ -460,11 +513,18 @@ const TabOverview: React.FC = () => {
           showExpandColumn: false,
         }}
         locale={{
-          emptyText: '暂无标签页'
+          emptyText: t('noTabs')
         }}
         tableLayout="fixed"
-        scroll={{ x: NAME_COLUMN_WIDTH + COUNT_COLUMN_WIDTH + 120, y: tableScrollY }}
+        scroll={{ x: NAME_COLUMN_WIDTH + COUNT_COLUMN_WIDTH + ACTION_COLUMN_WIDTH, y: tableScrollY }}
       />
+      {recentlyClosedTab && (
+        <div className="tab-overview-restore">
+          <Button type="primary" size="small" onClick={handleRestoreClosedTab}>
+            {t('restoreClosedTab')}
+          </Button>
+        </div>
+      )}
     </div>
   );
 };
