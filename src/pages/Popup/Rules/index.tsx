@@ -19,7 +19,7 @@ import type { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { CSS } from '@dnd-kit/utilities';
 import './style.less';
-import { HolderOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import { HolderOutlined } from '@ant-design/icons';
 
 const COLORS = [
   { value: 'grey', label: '灰色' },
@@ -233,7 +233,6 @@ const Rules: React.FC = () => {
     <div className="container">
       <Space style={{ position: 'absolute', right: 20, top: -55 }}>
         <Button
-          icon={<PlusOutlined />}
           onClick={() => {
             form.setFieldsValue({
               matchType: 0,
@@ -243,7 +242,6 @@ const Rules: React.FC = () => {
           }}>
           添加规则</Button>
         <Button
-          icon={<ReloadOutlined />}
           onClick={() => {
             reloadRules()
             reloadConfig()

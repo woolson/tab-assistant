@@ -1,63 +1,74 @@
-import { Button, ConfigProvider, Row, Tabs, theme } from 'antd';
-import React, { useCallback, useEffect, useState } from 'react';
+import { ConfigProvider, Spin, Tabs, theme } from 'antd';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { render } from 'react-dom';
 import zhCN from 'antd/es/locale/zh_CN';
-import Rules from './Rules';
-import About from './About';
-import Setting from './Setting';
+import TabOverview from './TabOverview';
 // import Useful from './Usefal';
 import Header from './Header';
 import './index.less';
 import '../../common/styles/font.less';
 
-const items = [
-  {
-    key: 'rules',
-    label: '分组规则',
-    children: <Rules />,
-  },
-  // {
-  //   key: 'useful',
-  //   label: '常用分组',
-  //   children: <Useful />,
-  // },
-  {
-    key: 'setting',
-    label: '其他设置',
-    children: <Setting />,
-  },
-  {
-    key: 'about',
-    label: '关于插件',
-    children: <About />,
-  },
-];
+const Rules = lazy(() => import('./Rules'));
+const Setting = lazy(() => import('./Setting'));
+const About = lazy(() => import('./About'));
+
+const LazyTabPane: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <Suspense fallback={<div className="popup-tab-loading"><Spin size="small" /></div>}>
+    {children}
+  </Suspense>
+);
 
 const App = () => {
   const [isDarkMode, setIsDarkMode] = useState(window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const mediaQuery = useMemo(() => window.matchMedia('(prefers-color-scheme: dark)'), []);
+
+  const items = useMemo(() => [
+    {
+      key: 'tabOverview',
+      label: '当前标签',
+      children: <TabOverview />,
+    },
+    {
+      key: 'rules',
+      label: '分组规则',
+      children: <LazyTabPane><Rules /></LazyTabPane>,
+    },
+    // {
+    //   key: 'useful',
+    //   label: '常用分组',
+    //   children: <Useful />,
+    // },
+    {
+      key: 'setting',
+      label: '其他设置',
+      children: <LazyTabPane><Setting /></LazyTabPane>,
+    },
+    {
+      key: 'about',
+      label: '关于插件',
+      children: <LazyTabPane><About /></LazyTabPane>,
+    },
+  ], []);
 
   // 检测当前是否为暗色模式
   const checkDarkMode = useCallback(() => {
-    const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    setIsDarkMode(isDarkMode);
-  }, [])
+    setIsDarkMode(mediaQuery.matches);
+  }, [mediaQuery])
 
   useEffect(() => {
     // 初始化时检查一次
     checkDarkMode();
     // 监听系统主题变化
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (event) => {
-      checkDarkMode();
-    });
+    mediaQuery.addEventListener('change', checkDarkMode);
 
     return () => {
       // 移除监听
-      window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', checkDarkMode);
+      mediaQuery.removeEventListener('change', checkDarkMode);
     }
-  }, [])
+  }, [checkDarkMode, mediaQuery])
 
   return (
-    <div style={{ background: isDarkMode ? '#111' : 'white', height: '100%' }}>
+    <div className="popup-app" style={{ background: isDarkMode ? '#111' : 'white' }}>
       <ConfigProvider locale={zhCN} theme={{ algorithm: isDarkMode ? theme.darkAlgorithm : undefined }}>
         <Header />
 

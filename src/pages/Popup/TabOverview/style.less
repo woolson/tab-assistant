@@ -1,0 +1,229 @@
+.tab-overview {
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0 20px 20px;
+
+  .ant-table-wrapper,
+  .ant-spin-nested-loading,
+  .ant-spin-container {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .tab-overview-title {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .tab-overview-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    flex-wrap: nowrap;
+    vertical-align: middle;
+  }
+
+  .tab-overview-name-cell {
+    max-width: 360px;
+    white-space: nowrap;
+  }
+
+  .tab-overview-title-tab {
+    display: grid;
+    grid-template-columns: max-content 14px;
+    gap: 6px;
+    padding-left: 18px;
+    overflow: hidden;
+  }
+
+  .tab-overview-group-row {
+    cursor: pointer;
+  }
+
+  .tab-overview-tab-meta,
+  .tab-overview-tab-title {
+    display: inline-block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+  }
+
+  .tab-overview-tab-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: none;
+    overflow: visible;
+  }
+
+  .tab-overview-tab-meta .ant-tag {
+    flex: none;
+    margin-right: 0;
+  }
+
+  .tab-overview-tab-favicon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 16px;
+    height: 16px;
+  }
+
+  .tab-overview-tab-favicon img {
+    display: block;
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+  }
+
+  .tab-overview-tab-favicon-empty::before {
+    display: block;
+    width: 12px;
+    height: 12px;
+    content: '';
+    background: #d9d9d9;
+    border-radius: 50%;
+  }
+
+  .tab-overview-tab-title {
+    max-width: none;
+    min-width: 0;
+    overflow: visible;
+    text-overflow: clip;
+    flex: none;
+    font-size: 12px;
+  }
+
+  .tab-overview-group-tag {
+    max-width: none;
+    margin-right: 0;
+    border-width: 1px;
+    border-style: solid;
+    border-radius: 12px;
+    white-space: nowrap;
+    font-weight: 500;
+    line-height: 20px;
+  }
+
+  .tab-overview-type-count {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    color: #8c8c8c;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+  }
+
+  .tab-overview-group-tag-grey {
+    color: #3c4043;
+    background: #dadce0;
+    border-color: #dadce0;
+  }
+
+  .tab-overview-group-tag-blue {
+    color: #174ea6;
+    background: #d2e3fc;
+    border-color: #d2e3fc;
+  }
+
+  .tab-overview-group-tag-red {
+    color: #a50e0e;
+    background: #fce8e6;
+    border-color: #fce8e6;
+  }
+
+  .tab-overview-group-tag-yellow {
+    color: #7a4f00;
+    background: #feefc3;
+    border-color: #feefc3;
+  }
+
+  .tab-overview-group-tag-green {
+    color: #0d652d;
+    background: #ceead6;
+    border-color: #ceead6;
+  }
+
+  .tab-overview-group-tag-pink {
+    color: #9c166b;
+    background: #fde7f3;
+    border-color: #fde7f3;
+  }
+
+  .tab-overview-group-tag-purple {
+    color: #681da8;
+    background: #e9d2fd;
+    border-color: #e9d2fd;
+  }
+
+  .tab-overview-group-tag-cyan {
+    color: #007b83;
+    background: #cbf0f8;
+    border-color: #cbf0f8;
+  }
+
+  .tab-overview-url-icon {
+    color: #8c8c8c;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .tab-overview-url-icon:hover {
+    color: #2E75E5;
+  }
+
+  .operations {
+    gap: 4px !important;
+
+    .ant-space-item {
+      line-height: 1;
+    }
+
+    .ant-btn-link {
+      height: auto;
+      padding: 0;
+      line-height: 1;
+    }
+
+    .ant-divider-vertical {
+      margin-inline: 0;
+    }
+  }
+
+  .ant-table-cell-fix-right {
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+  }
+
+  .tab-overview-count-cell {
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+    text-align: center;
+  }
+
+  .tab-overview-action-cell {
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+    text-align: center;
+
+    .operations {
+      justify-content: center;
+      width: 100%;
+    }
+  }
+}
+
+.tab-overview-url-tooltip {
+  .ant-tooltip-inner {
+    white-space: normal;
+    word-break: break-all;
+    overflow-wrap: anywhere;
+  }
+}

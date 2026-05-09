@@ -46,6 +46,7 @@ class TabAssistant {
     this.bootstrap()
 
     /** 页面自动进入分组 */
+    chrome.tabs.onCreated.addListener(this.onTabCreated.bind(this))
     chrome.tabs.onRemoved.addListener(this.onTabRemoved.bind(this))
     chrome.tabs.onUpdated.addListener(this.onTabAdded.bind(this))
     chrome.tabGroups.onRemoved.addListener(this.onGroupRemoved.bind(this))
@@ -195,6 +196,8 @@ class TabAssistant {
       : tabInfoOrTabId
     if (!tabInfo.url || !tabInfo.id) return;
 
+    this.removeTabFromGroups(tabInfo.id, tabInfo.windowId)
+
     const { groupTitle, groupColor, sortIndex } = this.getGroupTitleByUrl(tabInfo.url)
     const groupInfo = this.getGroupByWindowIdAndTitle({
       windowId: tabInfo.windowId,
@@ -300,13 +303,31 @@ class TabAssistant {
   /**
    * 标签添加时进行移动
    */
+  async onTabCreated(tab: chrome.tabs.Tab) {
+    if (tab.id) {
+      Logger.log('创建标签后添加到分组', tab.url)
+      this.addTabToGroup(tab, true)
+    }
+  }
+
   async onTabAdded(tabId: number, changeInfo: chrome.tabs.TabChangeInfo) {
-    if (changeInfo.url) {
-      Logger.log('对标签添加到分组', changeInfo.url)
+    if (changeInfo.url || changeInfo.status === 'complete') {
+      const tabInfo = await chrome.tabs.get(tabId)
+      Logger.log('对标签添加到分组', changeInfo.url || tabInfo.url)
       this.addTabToGroup({
-        ...(await chrome.tabs.get(tabId)),
-        url: changeInfo.url,
+        ...tabInfo,
+        url: changeInfo.url || tabInfo.url,
       }, true)
+    }
+  }
+
+  /** 标签重新分组前，先从旧分组缓存中移除 */
+  removeTabFromGroups(tabId: number, windowId: number) {
+    for (const group of this.getSortedGroups(windowId)) {
+      if (group.tabIds?.has?.(tabId)) {
+        Logger.log('从旧分组移除Tab', group.title, tabId)
+        group.tabIds.delete(tabId)
+      }
     }
   }
 

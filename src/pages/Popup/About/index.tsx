@@ -1,6 +1,6 @@
 import React, { useCallback } from "react"
 import { Button, Divider, Drawer, message, Result, Row, Space, Tag, theme } from "antd"
-import { DownloadOutlined, ExportOutlined, ShareAltOutlined } from "@ant-design/icons"
+import { ShareAltOutlined } from "@ant-design/icons"
 import Icon from '@/assets/img/icon.svg';
 import FileSaver from 'file-saver';
 import { StorageKeyEnum } from "@/common/const";
@@ -110,13 +110,11 @@ export const About = () => {
                   GitHub
                 </Button> */}
                 <Button
-                  icon={<ExportOutlined />}
                   onClick={exportSetting}
                   style={{ boxShadow: 'none' }}>
                   <span><b>导出</b>规则和设置</span>
                 </Button>
                 <Button
-                  icon={<DownloadOutlined />}
                   onClick={importSetting}
                   style={{ boxShadow: 'none' }}>
                   <span><b>导入</b>规则和设置</span>
