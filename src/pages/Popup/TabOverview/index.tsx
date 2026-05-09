@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { Button, message, Popconfirm, Space, Table, Tag, Tooltip } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { Key } from 'antd/es/table/interface';
-import { LinkOutlined } from '@ant-design/icons';
+import { CloseOutlined, LinkOutlined } from '@ant-design/icons';
 import './style.less';
 
 type RowType = 'group' | 'tab';
@@ -137,6 +137,7 @@ const TabOverview: React.FC = () => {
         .sort(([, prevTabs], [, nextTabs]) => Math.min(...prevTabs.map(tab => tab.index)) - Math.min(...nextTabs.map(tab => tab.index)))
         .map(([groupId, groupTabs]) => {
           const group = groupMap.get(groupId);
+          const color = group?.color || DEFAULT_GROUP_COLOR;
           const sortedTabs = groupTabs.sort((prev, next) => prev.index - next.index);
           const tabIds = sortedTabs.map(tab => tab.id).filter((id): id is number => typeof id === 'number');
           const groupKey = `group-${groupId}`;
@@ -149,6 +150,7 @@ const TabOverview: React.FC = () => {
             tabId: tab.id,
             url: tab.url,
             favIconUrl: tab.favIconUrl,
+            color,
             status: tab.status,
             active: tab.active,
             pinned: tab.pinned,
@@ -162,7 +164,7 @@ const TabOverview: React.FC = () => {
             key: groupKey,
             rowType: 'group' as RowType,
             title: group?.title || '未分组',
-            color: group?.color,
+            color,
             groupId,
             collapsed: group?.collapsed,
             tabIds,
@@ -328,7 +330,13 @@ const TabOverview: React.FC = () => {
               title={confirmTitle}
               onConfirm={() => handleCloseRecord(record)}
             >
-              <Button type="link" danger>关闭</Button>
+              <Button
+                type="text"
+                danger
+                size="small"
+                icon={<CloseOutlined />}
+                aria-label="关闭"
+              />
             </Popconfirm>
           </Space>
         );
@@ -427,7 +435,11 @@ const TabOverview: React.FC = () => {
         dataSource={dataSource}
         columns={columns}
         rowKey="key"
-        rowClassName={record => record.rowType === 'group' ? 'tab-overview-group-row' : ''}
+        rowClassName={record => [
+          `tab-overview-${record.rowType}-row`,
+          'tab-overview-themed-row',
+          `tab-overview-row-${record.color || DEFAULT_GROUP_COLOR}`,
+        ].join(' ')}
         onRow={record => ({
           onClick: event => {
             const target = event.target as HTMLElement;

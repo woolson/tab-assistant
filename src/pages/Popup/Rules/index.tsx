@@ -1,6 +1,6 @@
 
 import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { Button, Form, Input, Drawer, Popconfirm, Radio, Row, Select, Space, Table, Divider, Tag } from 'antd';
+import { Button, Form, Input, Drawer, Popconfirm, Radio, Row, Select, Space, Table, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useForm } from 'antd/lib/form/Form';
 import { v4 as uuid } from 'uuid';
@@ -19,7 +19,7 @@ import type { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { CSS } from '@dnd-kit/utilities';
 import './style.less';
-import { HolderOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, HolderOutlined } from '@ant-design/icons';
 
 const COLORS = [
   { value: 'grey', label: '灰色' },
@@ -125,19 +125,35 @@ const Rules: React.FC = () => {
     {
       title: '操作',
       fixed: 'right',
-      width: 100,
+      width: 58,
+      align: 'center',
+      className: 'rules-action-cell',
       render: (_, record) =>
-        <Space className="operations" split={<Divider type="vertical" />}>
-          <Button type="link" onClick={() => {
-            setEditData(record)
-            form.setFieldsValue(record)
-          }}>编辑</Button>
+        <Space className="operations">
+          <Button
+            type="text"
+            size="small"
+            icon={<EditOutlined />}
+            aria-label="编辑"
+            title="编辑"
+            onClick={() => {
+              setEditData(record)
+              form.setFieldsValue(record)
+            }}
+          />
 
           <Popconfirm
             placement="left"
             title="确认删除这个规则吗?"
             onConfirm={() => handleDelete(record.sortIndex)}>
-            <Button type="link" danger>删除</Button>
+            <Button
+              type="text"
+              danger
+              size="small"
+              icon={<DeleteOutlined />}
+              aria-label="删除"
+              title="删除"
+            />
           </Popconfirm>
         </Space>
     },
@@ -230,7 +246,7 @@ const Rules: React.FC = () => {
   }, [])
 
   return (
-    <div className="container">
+    <div className="container rules">
       <Space style={{ position: 'absolute', right: 20, top: -55 }}>
         <Button
           onClick={() => {

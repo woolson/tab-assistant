@@ -33,9 +33,78 @@ body {
   }
 
   .operations {
-    .ant-btn-link {
-      padding-left: 0;
-      padding-right: 0;
+    gap: 4px !important;
+  }
+}
+
+.rules {
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+
+  .ant-table-wrapper,
+  .ant-spin-nested-loading,
+  .ant-spin-container {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .ant-table-body {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .ant-table-body::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ant-table-thead > tr > th {
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+    color: rgba(0, 0, 0, 0.34) !important;
+    border-bottom-color: rgba(5, 5, 5, 0.035) !important;
+    font-size: 11px !important;
+    font-weight: 400 !important;
+    line-height: 16px !important;
+  }
+
+  .ant-table-row > td {
+    border-bottom-color: rgba(5, 5, 5, 0.018) !important;
+  }
+
+  .ant-table-cell-fix-left-last::after,
+  .ant-table-cell-fix-right-first::after {
+    box-shadow: none !important;
+  }
+
+  .operations {
+    .ant-space-item {
+      line-height: 1;
     }
+
+    .ant-btn {
+      width: 18px;
+      height: 18px;
+      padding: 0;
+      font-size: 12px;
+      line-height: 18px;
+    }
+
+    .ant-btn .anticon {
+      font-size: 12px;
+    }
+  }
+
+  .rules-action-cell,
+  .ant-table-cell-fix-right {
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+    text-align: center;
+  }
+
+  .rules-action-cell .operations {
+    justify-content: center;
+    width: 100%;
   }
 }

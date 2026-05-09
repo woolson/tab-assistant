@@ -12,6 +12,25 @@
     min-height: 0;
   }
 
+  .ant-table-body {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .ant-table-body::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ant-table-thead > tr > th {
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+    color: rgba(0, 0, 0, 0.34) !important;
+    border-bottom-color: rgba(5, 5, 5, 0.035) !important;
+    font-size: 11px !important;
+    font-weight: 400 !important;
+    line-height: 16px !important;
+  }
+
   .tab-overview-title {
     min-width: 0;
     max-width: 100%;
@@ -41,6 +60,79 @@
 
   .tab-overview-group-row {
     cursor: pointer;
+  }
+
+  .tab-overview-themed-row > td {
+    // background: var(--tab-overview-row-bg) !important;
+    border-bottom-color: rgba(5, 5, 5, 0.018) !important;
+  }
+
+  .tab-overview-themed-row:hover > td,
+  .tab-overview-themed-row.ant-table-row-selected > td,
+  .ant-table-row-expand-icon-cell:hover {
+    // background: var(--tab-overview-row-hover-bg) !important;
+  }
+
+  .tab-overview-themed-row > .ant-table-cell-fix-left,
+  .tab-overview-themed-row > .ant-table-cell-fix-right {
+    // background: var(--tab-overview-row-bg) !important;
+  }
+
+  .tab-overview-themed-row:hover > .ant-table-cell-fix-left,
+  .tab-overview-themed-row:hover > .ant-table-cell-fix-right,
+  .tab-overview-themed-row.ant-table-row-selected > .ant-table-cell-fix-left,
+  .tab-overview-themed-row.ant-table-row-selected > .ant-table-cell-fix-right {
+    // background: var(--tab-overview-row-hover-bg) !important;
+  }
+
+  .ant-table-cell-fix-left-last::after,
+  .ant-table-cell-fix-right-first::after {
+    box-shadow: none !important;
+  }
+
+  .tab-overview-row-grey {
+    --tab-overview-row-bg: #fafafa;
+    --tab-overview-row-hover-bg: #f3f4f5;
+  }
+
+  .tab-overview-row-blue {
+    --tab-overview-row-bg: #f5f9ff;
+    --tab-overview-row-hover-bg: #ecf4ff;
+  }
+
+  .tab-overview-row-red {
+    --tab-overview-row-bg: #fff7f6;
+    --tab-overview-row-hover-bg: #ffefed;
+  }
+
+  .tab-overview-row-yellow {
+    --tab-overview-row-bg: #fffaf0;
+    --tab-overview-row-hover-bg: #fff4d7;
+  }
+
+  .tab-overview-row-green {
+    --tab-overview-row-bg: #f5fbf6;
+    --tab-overview-row-hover-bg: #edf7ef;
+  }
+
+  .tab-overview-row-pink {
+    --tab-overview-row-bg: #fff6fb;
+    --tab-overview-row-hover-bg: #ffedf6;
+  }
+
+  .tab-overview-row-purple {
+    --tab-overview-row-bg: #fbf7ff;
+    --tab-overview-row-hover-bg: #f5edff;
+  }
+
+  .tab-overview-row-cyan {
+    --tab-overview-row-bg: #f3fbfd;
+    --tab-overview-row-hover-bg: #e9f8fb;
+  }
+
+  .tab-overview-row-orange {
+    --tab-overview-row-bg: #fff8f1;
+    --tab-overview-row-hover-bg: #fff0df;
   }
 
   .tab-overview-tab-meta,
@@ -168,6 +260,12 @@
     border-color: #cbf0f8;
   }
 
+  .tab-overview-group-tag-orange {
+    color: #b06000;
+    background: #fedfc8;
+    border-color: #fedfc8;
+  }
+
   .tab-overview-url-icon {
     color: #8c8c8c;
     font-size: 12px;
@@ -186,10 +284,16 @@
       line-height: 1;
     }
 
-    .ant-btn-link {
-      height: auto;
+    .ant-btn {
+      width: 18px;
+      height: 18px;
       padding: 0;
-      line-height: 1;
+      font-size: 12px;
+      line-height: 18px;
+    }
+
+    .ant-btn .anticon {
+      font-size: 12px;
     }
 
     .ant-divider-vertical {
