@@ -1,5 +1,6 @@
 
 import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Button, Form, Input, Drawer, Popconfirm, Radio, Row, Select, Space, Table, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useForm } from 'antd/lib/form/Form';
@@ -23,6 +24,11 @@ import { DeleteOutlined, EditOutlined, HolderOutlined } from '@ant-design/icons'
 import { useI18n } from '@/common/i18n';
 
 const COLOR_KEYS = ['grey', 'blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan'] as const;
+const ACTIONS_SLOT_ID = 'popup-tab-actions-slot';
+
+interface RulesProps {
+  showActions?: boolean;
+}
 
 interface RowContextProps {
   setActivatorNodeRef?: (element: HTMLElement | null) => void;
@@ -81,10 +87,11 @@ const TableRow: React.FC<RowProps> = (props) => {
 
 const data: RuleItem[] = [];
 
-const Rules: React.FC = () => {
+const Rules: React.FC<RulesProps> = ({ showActions = true }) => {
   const { t } = useI18n();
   const [dataSource, setDataSource] = useState(data);
   const [editData, setEditData] = useState<Partial<RuleItem>>()
+  const [actionsContainer, setActionsContainer] = useState<HTMLElement | null>(null);
   const [form] = useForm<RuleItem>()
   const colorOptions = useMemo(() => COLOR_KEYS.map(value => ({ value, label: t(value) })), [t]);
 
@@ -191,6 +198,15 @@ const Rules: React.FC = () => {
     reloadRules()
   }, [])
 
+  useEffect(() => {
+    if (!showActions) {
+      setActionsContainer(null);
+      return;
+    }
+
+    setActionsContainer(document.getElementById(ACTIONS_SLOT_ID));
+  }, [showActions]);
+
   const onFormOk = async () => {
     await form.validateFields()
     const newDataSource = [...dataSource]
@@ -239,24 +255,29 @@ const Rules: React.FC = () => {
     })
   }, [])
 
+  const actions = (
+    <Space className="rules-toolbar">
+      <Button
+        onClick={() => {
+          form.setFieldsValue({
+            matchType: 0,
+            groupColor: 'blue',
+          })
+          setEditData({})
+        }}>
+        {t('addRule')}</Button>
+      <Button
+        onClick={() => {
+          reloadRules()
+          reloadConfig(t('ruleUpdateSuccess'))
+        }}>{t('refreshRules')}</Button>
+    </Space>
+  );
+
   return (
-    <div className="container rules">
-      <Space style={{ position: 'absolute', right: 20, top: -55 }}>
-        <Button
-          onClick={() => {
-            form.setFieldsValue({
-              matchType: 0,
-              groupColor: 'blue',
-            })
-            setEditData({})
-          }}>
-          {t('addRule')}</Button>
-        <Button
-          onClick={() => {
-            reloadRules()
-            reloadConfig(t('ruleUpdateSuccess'))
-          }}>{t('refreshRules')}</Button>
-      </Space>
+    <>
+      {showActions && actionsContainer && createPortal(actions, actionsContainer)}
+      <div className="container rules">
       <DndContext
         onDragEnd={onDragEnd}
         modifiers={[restrictToVerticalAxis]}
@@ -340,6 +361,7 @@ const Rules: React.FC = () => {
         </Form>
       </Drawer>
     </div>
+    </>
   );
 };
 

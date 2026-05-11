@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Button, message, Space, Table, Tag, Tooltip } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { Key } from 'antd/es/table/interface';
@@ -43,6 +44,11 @@ const DEFAULT_GROUP_COLOR = 'grey';
 const NAME_COLUMN_WIDTH = 360;
 const COUNT_COLUMN_WIDTH = 35;
 const ACTION_COLUMN_WIDTH = 30;
+const ACTIONS_SLOT_ID = 'popup-tab-actions-slot';
+
+interface TabOverviewProps {
+  showActions?: boolean;
+}
 
 const runAfterPopupOpened = (callback: () => void) => {
   let timeoutId: number | undefined;
@@ -113,7 +119,7 @@ const collectRowKeys = (rows: TabTreeRow[]) => {
   return keys;
 };
 
-const TabOverview: React.FC = () => {
+const TabOverview: React.FC<TabOverviewProps> = ({ showActions = true }) => {
   const { t } = useI18n();
   const [dataSource, setDataSource] = useState<TabTreeRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -122,6 +128,7 @@ const TabOverview: React.FC = () => {
   const [batchMode, setBatchMode] = useState(false);
   const [tableScrollY, setTableScrollY] = useState(340);
   const [recentlyClosedTab, setRecentlyClosedTab] = useState<ClosedTabSnapshot>();
+  const [actionsContainer, setActionsContainer] = useState<HTMLElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const initializedRef = useRef(false);
   const restoreTimerRef = useRef<number>();
@@ -411,6 +418,16 @@ const TabOverview: React.FC = () => {
     () => dataSource.length > 0 && dataSource.every(row => expandedRowKeys.includes(row.key)),
     [dataSource, expandedRowKeys],
   );
+  const lastTabRowKeys = useMemo(() => {
+    const keys = new Set<string>();
+
+    dataSource.forEach(row => {
+      const lastTab = row.children?.[row.children.length - 1];
+      if (lastTab) keys.add(lastTab.key);
+    });
+
+    return keys;
+  }, [dataSource]);
 
   useEffect(() => {
     const cancelInitialReload = runAfterPopupOpened(reloadTabs);
@@ -447,6 +464,15 @@ const TabOverview: React.FC = () => {
     }
   }, []);
 
+  useEffect(() => {
+    if (!showActions) {
+      setActionsContainer(null);
+      return;
+    }
+
+    setActionsContainer(document.getElementById(ACTIONS_SLOT_ID));
+  }, [showActions]);
+
   useLayoutEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -469,63 +495,70 @@ const TabOverview: React.FC = () => {
     return () => resizeObserver.disconnect();
   }, []);
 
+  const actions = (
+    <Space className="tab-overview-toolbar">
+      <Button onClick={() => updateAllGroupsCollapsed(allGroupsExpanded)}>
+        {allGroupsExpanded ? t('collapseAll') : t('expandAll')}
+      </Button>
+      <Button
+        danger={batchMode && !!selectedTabCount}
+        onClick={handleBatchButtonClick}
+      >
+        {batchMode && selectedTabCount ? t('closeSelected') : t('batchActions')}
+      </Button>
+    </Space>
+  );
+
   return (
-    <div className="container tab-overview" ref={containerRef}>
-      <Space style={{ position: 'absolute', right: 20, top: -55 }}>
-        <Button onClick={() => updateAllGroupsCollapsed(allGroupsExpanded)}>
-          {allGroupsExpanded ? t('collapseAll') : t('expandAll')}
-        </Button>
-        <Button
-          danger={batchMode && !!selectedTabCount}
-          onClick={handleBatchButtonClick}
-        >
-          {batchMode && selectedTabCount ? t('closeSelected') : t('batchActions')}
-        </Button>
-      </Space>
-      <Table
-        pagination={false}
-        loading={loading}
-        dataSource={dataSource}
-        columns={columns}
-        rowKey="key"
-        rowClassName={record => [
-          `tab-overview-${record.rowType}-row`,
-          'tab-overview-themed-row',
-          `tab-overview-row-${record.color || DEFAULT_GROUP_COLOR}`,
-        ].join(' ')}
-        onRow={record => ({
-          onClick: event => {
-            const target = event.target as HTMLElement;
-            if (record.rowType !== 'group') return;
-            if (target.closest('button,input,.ant-checkbox-wrapper,.operations')) return;
-            handleToggleGroup(record);
-          },
-        })}
-        rowSelection={batchMode ? {
-          selectedRowKeys,
-          checkStrictly: false,
-          onChange: keys => setSelectedRowKeys(keys),
-        } : undefined}
-        expandable={{
-          expandedRowKeys,
-          onExpandedRowsChange: keys => setExpandedRowKeys([...keys]),
-          rowExpandable: record => record.rowType === 'group',
-          showExpandColumn: false,
-        }}
-        locale={{
-          emptyText: t('noTabs')
-        }}
-        tableLayout="fixed"
-        scroll={{ x: NAME_COLUMN_WIDTH + COUNT_COLUMN_WIDTH + ACTION_COLUMN_WIDTH, y: tableScrollY }}
-      />
-      {recentlyClosedTab && (
-        <div className="tab-overview-restore">
-          <Button type="primary" size="small" onClick={handleRestoreClosedTab}>
-            {t('restoreClosedTab')}
-          </Button>
-        </div>
-      )}
-    </div>
+    <>
+      {showActions && actionsContainer && createPortal(actions, actionsContainer)}
+      <div className="container tab-overview" ref={containerRef}>
+        <Table
+          pagination={false}
+          loading={loading}
+          dataSource={dataSource}
+          columns={columns}
+          rowKey="key"
+          rowClassName={record => [
+            `tab-overview-${record.rowType}-row`,
+            lastTabRowKeys.has(record.key) ? 'tab-overview-last-tab-row' : '',
+            'tab-overview-themed-row',
+            `tab-overview-row-${record.color || DEFAULT_GROUP_COLOR}`,
+          ].filter(Boolean).join(' ')}
+          onRow={record => ({
+            onClick: event => {
+              const target = event.target as HTMLElement;
+              if (record.rowType !== 'group') return;
+              if (target.closest('button,input,.ant-checkbox-wrapper,.operations')) return;
+              handleToggleGroup(record);
+            },
+          })}
+          rowSelection={batchMode ? {
+            selectedRowKeys,
+            checkStrictly: false,
+            onChange: keys => setSelectedRowKeys(keys),
+          } : undefined}
+          expandable={{
+            expandedRowKeys,
+            onExpandedRowsChange: keys => setExpandedRowKeys([...keys]),
+            rowExpandable: record => record.rowType === 'group',
+            showExpandColumn: false,
+          }}
+          locale={{
+            emptyText: t('noTabs')
+          }}
+          tableLayout="fixed"
+          scroll={{ x: NAME_COLUMN_WIDTH + COUNT_COLUMN_WIDTH + ACTION_COLUMN_WIDTH, y: tableScrollY }}
+        />
+        {recentlyClosedTab && (
+          <div className="tab-overview-restore">
+            <Button type="primary" size="small" onClick={handleRestoreClosedTab}>
+              {t('restoreClosedTab')}
+            </Button>
+          </div>
+        )}
+      </div>
+    </>
   );
 };
 

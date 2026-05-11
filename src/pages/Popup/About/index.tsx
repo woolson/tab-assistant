@@ -1,14 +1,14 @@
 import React, { useCallback } from "react"
 import { Button, Divider, Drawer, message, Result, Row, Space, Tag, theme } from "antd"
 import { ShareAltOutlined } from "@ant-design/icons"
-import Icon from '@/assets/img/icon.svg';
+import Logo from '@/assets/img/icon.svg';
 import FileSaver from 'file-saver';
 import { StorageKeyEnum } from "@/common/const";
 import { openLink, reloadConfig } from "@/common";
 import { useSetState } from "ahooks";
-import "./style.less"
 import { Language, useI18n } from "@/common/i18n";
 import PackageJson from '../../../../package.json';
+import "./style.less"
 
 export const About = () => {
   const { token } = theme.useToken();
@@ -66,7 +66,7 @@ export const About = () => {
     <>
       <Result
         className="tab-assistant-about"
-        icon={<img src={Icon} width={100} />}
+        icon={<img src={Logo} width={200} />}
         title={<h3 style={{ margin: '0' }}>{t('appTitle')}</h3>}
         subTitle={t('appDescription')}
         extra={
@@ -136,7 +136,7 @@ export const About = () => {
         open={state.showChangeLogModal}
         width="80%"
         onClose={() => setState({ showChangeLogModal: false })}>
-        <h3>1.3.0 (2026-05-10)</h3>
+        <h3>1.3.1 (2026-05-11)</h3>
         <p><Tag color="volcano" style={{ fontWeight: 'bolder' }}>NEW</Tag><b>{t('newFeature')}</b></p>
         <ol>
           <li>{t('changelog1301')}</li>

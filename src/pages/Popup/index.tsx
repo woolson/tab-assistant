@@ -46,17 +46,18 @@ const PopupApp: React.FC<{
   mediaQuery: MediaQueryList;
 }> = ({ isDarkMode, setIsDarkMode, mediaQuery }) => {
   const { language, t } = useI18n();
+  const [activeKey, setActiveKey] = useState('tabOverview');
 
   const items = useMemo(() => [
     {
       key: 'tabOverview',
       label: t('tabCurrent'),
-      children: <TabOverview />,
+      children: <TabOverview showActions={activeKey === 'tabOverview'} />,
     },
     {
       key: 'rules',
       label: t('tabRules'),
-      children: <LazyTabPane><Rules /></LazyTabPane>,
+      children: <LazyTabPane><Rules showActions={activeKey === 'rules'} /></LazyTabPane>,
     },
     // {
     //   key: 'useful',
@@ -73,7 +74,7 @@ const PopupApp: React.FC<{
       label: t('tabAbout'),
       children: <LazyTabPane><About /></LazyTabPane>,
     },
-  ], [t]);
+  ], [activeKey, t]);
 
   // 检测当前是否为暗色模式
   const checkDarkMode = useCallback(() => {
@@ -98,9 +99,12 @@ const PopupApp: React.FC<{
         <Header />
 
         <Tabs
+          activeKey={activeKey}
+          onChange={setActiveKey}
           type="card"
           style={{ marginTop: 20 }}
           tabBarStyle={{ paddingLeft: 20, paddingRight: 20 }}
+          tabBarExtraContent={<div id="popup-tab-actions-slot" className="popup-tab-actions-slot" />}
           items={items}
         />
       </ConfigProvider>
