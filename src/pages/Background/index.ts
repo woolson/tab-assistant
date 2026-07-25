@@ -15,6 +15,11 @@ import { Logger } from "./helpers"
 import { MatchTypeEnum, NameMap, RuleItem, Groups, TabAssistantConfig } from "./types"
 import { cloneDeep, remove } from 'lodash-es'
 
+const LOCAL_FILE_GROUP_TITLES: Record<NonNullable<TabAssistantConfig['setting']['language']>, string> = {
+  'zh-CN': '本地文件',
+  'en-US': 'Local file',
+}
+
 /** 标签助理类 */
 class TabAssistant {
   /** 当前所有的分组 */
@@ -267,7 +272,15 @@ class TabAssistant {
    * 根据URL获取所在分组名称，默认使用域名
    */
   getGroupTitleByUrl(url: string) {
-    const { host } = new URL(url)
+    const { host, protocol } = new URL(url)
+
+    if (protocol === 'file:') {
+      return {
+        groupTitle: this.getLocalFileGroupTitle(),
+        groupColor: undefined,
+        sortIndex: -1
+      }
+    }
 
     const rules = this.rules.slice(0).sort((a, b) => b.priority - a.priority)
 
@@ -298,6 +311,18 @@ class TabAssistant {
       groupColor: undefined,
       sortIndex: -1
     }
+  }
+
+  getLocalFileGroupTitle() {
+    const language = this.setting.language
+    if (language && LOCAL_FILE_GROUP_TITLES[language]) {
+      return LOCAL_FILE_GROUP_TITLES[language]
+    }
+
+    const browserLanguage = chrome.i18n?.getUILanguage?.() || ''
+    return browserLanguage.toLowerCase().startsWith('zh')
+      ? LOCAL_FILE_GROUP_TITLES['zh-CN']
+      : LOCAL_FILE_GROUP_TITLES['en-US']
   }
 
   /**
