@@ -136,6 +136,12 @@ export const About = () => {
         open={state.showChangeLogModal}
         width="80%"
         onClose={() => setState({ showChangeLogModal: false })}>
+        <h3>1.3.2 (2026-07-25)</h3>
+        <p><Tag color="volcano" style={{ fontWeight: 'bolder' }}>NEW</Tag><b>{t('newFeature')}</b></p>
+        <ol>
+          <li>{t('changelog1321')}</li>
+        </ol>
+        <Divider dashed />
         <h3>1.3.1 (2026-05-11)</h3>
         <p><Tag color="volcano" style={{ fontWeight: 'bolder' }}>NEW</Tag><b>{t('newFeature')}</b></p>
         <ol>
