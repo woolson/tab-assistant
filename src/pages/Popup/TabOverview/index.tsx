@@ -24,6 +24,7 @@ interface TabTreeRow {
   color?: chrome.tabGroups.ColorEnum;
   groupId?: number;
   tabId?: number;
+  windowId?: number;
   collapsed?: boolean;
   tabIds?: number[];
   count?: number;
@@ -169,6 +170,7 @@ const TabOverview: React.FC<TabOverviewProps> = ({ showActions = true }) => {
             title: getTabTitle(tab, t),
             typeName: getTypeName(tab, t),
             tabId: tab.id,
+            windowId: tab.windowId,
             url: tab.url,
             favIconUrl: tab.favIconUrl,
             color,
@@ -242,6 +244,7 @@ const TabOverview: React.FC<TabOverviewProps> = ({ showActions = true }) => {
         title: record.title,
         url: record.url,
         pinned: record.pinned,
+        windowId: record.windowId,
         index: record.index,
       }
       : undefined;
@@ -270,6 +273,7 @@ const TabOverview: React.FC<TabOverviewProps> = ({ showActions = true }) => {
         url: recentlyClosedTab.url,
         active: true,
         pinned: recentlyClosedTab.pinned,
+        windowId: recentlyClosedTab.windowId,
         index: recentlyClosedTab.index,
       });
     } catch (error) {
