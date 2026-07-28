@@ -39,23 +39,36 @@ class TabAssistant {
     removeKeywordList: []
   }
 
+  private readonly tabCreatedListener = this.onTabCreated.bind(this)
+  private readonly tabRemovedListener = this.onTabRemoved.bind(this)
+  private readonly tabUpdatedListener = this.onTabAdded.bind(this)
+  private readonly groupRemovedListener = this.onGroupRemoved.bind(this)
+  private readonly groupUpdatedListener = this.onGroupUpdated.bind(this)
+
   constructor(config: TabAssistantConfig) {
     Logger.log('初始化_扩展配置', config)
 
-    this.rules = config.rules
+    this.rules = config.rules || []
     if (config.domainMap) this.domainMap = config.domainMap
-    this.setting = Object.assign(this.setting, config.setting)
+    this.setting = Object.assign(this.setting, config.setting || {})
 
     Logger.log('初始化_分组信息', cloneDeep(this.groups))
 
-    this.bootstrap()
-
     /** 页面自动进入分组 */
-    chrome.tabs.onCreated.addListener(this.onTabCreated.bind(this))
-    chrome.tabs.onRemoved.addListener(this.onTabRemoved.bind(this))
-    chrome.tabs.onUpdated.addListener(this.onTabAdded.bind(this))
-    chrome.tabGroups.onRemoved.addListener(this.onGroupRemoved.bind(this))
-    chrome.tabGroups.onUpdated.addListener(this.onGroupUpdated.bind(this))
+    chrome.tabs.onCreated.addListener(this.tabCreatedListener)
+    chrome.tabs.onRemoved.addListener(this.tabRemovedListener)
+    chrome.tabs.onUpdated.addListener(this.tabUpdatedListener)
+    chrome.tabGroups.onRemoved.addListener(this.groupRemovedListener)
+    chrome.tabGroups.onUpdated.addListener(this.groupUpdatedListener)
+  }
+
+  /** 配置重载时移除旧实例监听，避免同一个事件被重复处理。 */
+  dispose() {
+    chrome.tabs.onCreated.removeListener(this.tabCreatedListener)
+    chrome.tabs.onRemoved.removeListener(this.tabRemovedListener)
+    chrome.tabs.onUpdated.removeListener(this.tabUpdatedListener)
+    chrome.tabGroups.onRemoved.removeListener(this.groupRemovedListener)
+    chrome.tabGroups.onUpdated.removeListener(this.groupUpdatedListener)
   }
 
   /** 主程序 */
@@ -63,7 +76,7 @@ class TabAssistant {
     const windows = await chrome.windows.getAll()
     if (!windows.length) return
 
-    windows.forEach(async window => {
+    await Promise.all(windows.map(async window => {
       if (!window.id) return
       this.groups[window.id] = this.rules.reduce((prev, rule) => {
         prev[rule.groupTitle] = {
@@ -103,13 +116,13 @@ class TabAssistant {
 
       /** 当前窗口所有的标签 */
       const tabs = await chrome.tabs.query({ windowId: window.id })
+      const tabsById = new Map(tabs
+        .filter((tab): tab is chrome.tabs.Tab & { id: number } => typeof tab.id === 'number')
+        .map(tab => [tab.id, tab]))
       Logger.log('tabs', tabs)
 
-      /** 将标签页进行分组更新 */
-      for (const tab of tabs) {
-        const tabInfo = await chrome.tabs.get(tab.id as number)
-        this.addTabToGroup(tabInfo, false)
-      }
+      /** query 已返回完整标签信息，直接复用，避免冷启动时逐个再次读取。 */
+      tabs.forEach(tab => this.addTabToGroup(tab, false))
 
       /** 当前窗口排序后的分组 */
       const currentWindowSortedGroups = this.getSortedGroups(window.id)
@@ -120,9 +133,9 @@ class TabAssistant {
           Logger.log('初始化标签分组', groupInfo.title, groupInfo.index)
           // 获取Tab所属group
           if (groupId !== undefined) {
-            const tabs = (await Promise.all(Array.from(groupInfo.tabIds).map(tabId => chrome.tabs.get(tabId))))
-              .filter(tabInfo => tabInfo.groupId !== groupId)
-            if (tabs?.length) {
+            const hasUngroupedTab = Array.from(groupInfo.tabIds)
+              .some(tabId => tabsById.get(tabId)?.groupId !== groupId)
+            if (hasUngroupedTab) {
               groupId = await this.groupTabsInWindow({
                 groupId,
                 tabIds: Array.from(groupInfo.tabIds),
@@ -146,7 +159,7 @@ class TabAssistant {
           })
         }
       }
-    })
+    }))
   }
 
   /**
@@ -464,25 +477,41 @@ class TabAssistant {
   }
 }
 
-async function main() {
-  const storage = await chrome.storage.sync
-    .get([
-      StorageKeyEnum.RULES,
-      StorageKeyEnum.SETTING
-    ])
+let assistant: TabAssistant | undefined
+let reloadAssistantTask: Promise<void> = Promise.resolve()
 
-  /** 启动 */
-  const assistant = new TabAssistant({
-    rules: storage[StorageKeyEnum.RULES],
-    setting: storage[StorageKeyEnum.SETTING],
+function main() {
+  const nextReload = reloadAssistantTask.then(async () => {
+    const storage = await chrome.storage.sync
+      .get([
+        StorageKeyEnum.RULES,
+        StorageKeyEnum.SETTING
+      ])
+
+    assistant?.dispose()
+
+    /** 启动 */
+    assistant = new TabAssistant({
+      rules: storage[StorageKeyEnum.RULES],
+      setting: storage[StorageKeyEnum.SETTING],
+    })
+    await assistant.bootstrap()
+    Logger.log('assistant ins', assistant)
   })
-  Logger.log('assistant ins', assistant)
+
+  reloadAssistantTask = nextReload.catch(error => {
+    Logger.log('初始化扩展失败', error)
+  })
+
+  return nextReload
 };
 
-main();
+void main();
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  main();
+  if (message !== EventNameEnum.RELOAD_RULE) return false
+
+  void main();
   sendResponse(EventNameEnum.RELOAD_SUCC);
-  return true;
+  return false;
 })

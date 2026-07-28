@@ -1,13 +1,27 @@
-
 import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { Button, Form, Input, Drawer, Popconfirm, Radio, Row, Select, Space, Table, Tag } from 'antd';
-import type { ColumnsType } from 'antd/es/table';
+import {
+  Button,
+  Drawer,
+  Form,
+  Input,
+  message,
+  Popconfirm,
+  Radio,
+  Select,
+  Space,
+  Tooltip,
+} from 'antd';
 import { useForm } from 'antd/lib/form/Form';
 import { v4 as uuid } from 'uuid';
-import { reloadConfig } from '@/common';
-import { StorageKeyEnum } from '@/common/const';
-import { RuleItem } from '@/pages/Background/types';
+import {
+  DeleteOutlined,
+  EditOutlined,
+  HolderOutlined,
+  InfoCircleOutlined,
+  LinkOutlined,
+  PlusOutlined,
+  ReloadOutlined,
+} from '@ant-design/icons';
 import { DndContext } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
 import {
@@ -19,43 +33,98 @@ import {
 import type { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { CSS } from '@dnd-kit/utilities';
+import PageHeader from '../PageHeader';
 import './style.less';
-import { DeleteOutlined, EditOutlined, HolderOutlined } from '@ant-design/icons';
+import { reloadConfig } from '@/common';
+import { StorageKeyEnum } from '@/common/const';
+import { MatchTypeEnum, RuleItem } from '@/pages/Background/types';
 import { useI18n } from '@/common/i18n';
 
 const COLOR_KEYS = ['grey', 'blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan'] as const;
-const ACTIONS_SLOT_ID = 'popup-tab-actions-slot';
 
-interface RulesProps {
-  showActions?: boolean;
-}
+const COLOR_VALUES: Record<string, string> = {
+  grey: '#8a94a4',
+  blue: '#2167f3',
+  red: '#ef5b5b',
+  yellow: '#f7a51c',
+  green: '#16b886',
+  pink: '#e54f9f',
+  purple: '#8c45ed',
+  cyan: '#16b8ca',
+};
 
 interface RowContextProps {
   setActivatorNodeRef?: (element: HTMLElement | null) => void;
   listeners?: SyntheticListenerMap;
 }
 
-interface RowProps extends React.HTMLAttributes<HTMLTableRowElement> {
-  'data-row-key': string;
-}
-
 const RowContext = React.createContext<RowContextProps>({});
+
+const canUseStorage = () => typeof chrome !== 'undefined' && Boolean(chrome.storage?.sync);
+
+const createDemoRules = (): RuleItem[] => [
+  {
+    ruleId: 'demo-github',
+    name: 'GitHub',
+    groupTitle: 'GitHub',
+    priority: 0,
+    groupColor: 'blue',
+    matchType: MatchTypeEnum.Domain,
+    matchContent: 'github.com',
+    sortIndex: 0,
+  },
+  {
+    ruleId: 'demo-antd',
+    name: 'Ant Design',
+    groupTitle: 'Ant Design',
+    priority: 0,
+    groupColor: 'cyan',
+    matchType: MatchTypeEnum.Domain,
+    matchContent: 'ant-design.antgroup.com',
+    sortIndex: 1,
+  },
+  {
+    ruleId: 'demo-docs',
+    name: '开发文档',
+    groupTitle: '开发文档',
+    priority: 0,
+    groupColor: 'green',
+    matchType: MatchTypeEnum.RegExp,
+    matchContent: '(developer.chrome.com|developer.mozilla.org)',
+    sortIndex: 2,
+  },
+  {
+    ruleId: 'demo-files',
+    name: '本地文件',
+    groupTitle: '本地文件',
+    priority: 0,
+    groupColor: 'purple',
+    matchType: MatchTypeEnum.Domain,
+    matchContent: 'file://',
+    sortIndex: 3,
+  },
+];
 
 const DragHandle: React.FC = () => {
   const { setActivatorNodeRef, listeners } = useContext(RowContext);
   return (
     <Button
       type="text"
-      size="small"
+      className="rule-drag-handle"
       icon={<HolderOutlined />}
-      style={{ cursor: 'move' }}
       ref={setActivatorNodeRef}
       {...listeners}
+      aria-label="Drag"
     />
   );
 };
 
-const TableRow: React.FC<RowProps> = (props) => {
+const SortableRuleRow: React.FC<{
+  rule: RuleItem;
+  onEdit: (rule: RuleItem) => void;
+  onDelete: (sortIndex: number) => void;
+}> = ({ rule, onEdit, onDelete }) => {
+  const { t } = useI18n();
   const {
     attributes,
     listeners,
@@ -64,304 +133,305 @@ const TableRow: React.FC<RowProps> = (props) => {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: props['data-row-key'] });
+  } = useSortable({ id: rule.ruleId });
 
   const style: React.CSSProperties = {
-    ...props.style,
     transform: CSS.Translate.toString(transform),
     transition,
-    ...(isDragging ? { position: 'relative', zIndex: 9999 } : {}),
-  };
+    ...(isDragging ? { position: 'relative', zIndex: 10 } : {}),
+    '--rule-color': COLOR_VALUES[rule.groupColor || 'grey'],
+  } as React.CSSProperties;
 
-  const contextValue = useMemo<RowContextProps>(
+  const contextValue = useMemo(
     () => ({ setActivatorNodeRef, listeners }),
     [setActivatorNodeRef, listeners],
   );
 
   return (
     <RowContext.Provider value={contextValue}>
-      <tr {...props} ref={setNodeRef} style={style} {...attributes} />
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={`rule-row${isDragging ? ' is-dragging' : ''}`}
+        {...attributes}
+      >
+        <DragHandle />
+        <strong className="rule-name" title={rule.name}>{rule.name}</strong>
+        <span className={`rule-mode rule-mode-${rule.matchType === MatchTypeEnum.RegExp ? 'regexp' : 'domain'}`}>
+          {rule.matchType === MatchTypeEnum.RegExp ? t('regExp') : t('domain')}
+        </span>
+        <code className="rule-match" title={rule.matchContent}>{rule.matchContent}</code>
+        <Tooltip title={t(rule.groupColor || 'grey')}>
+          <span className="rule-color-dot" aria-label={t(rule.groupColor || 'grey')} />
+        </Tooltip>
+        <Space className="rule-actions" size={2}>
+          <Button
+            type="text"
+            icon={<EditOutlined />}
+            aria-label={t('edit')}
+            onClick={() => onEdit(rule)}
+          />
+          <Popconfirm
+            placement="left"
+            title={t('deleteRuleConfirm')}
+            onConfirm={() => onDelete(rule.sortIndex)}
+          >
+            <Button type="text" danger icon={<DeleteOutlined />} aria-label={t('delete')} />
+          </Popconfirm>
+        </Space>
+      </div>
     </RowContext.Provider>
   );
 };
 
-const data: RuleItem[] = [];
-
-const Rules: React.FC<RulesProps> = ({ showActions = true }) => {
+const Rules: React.FC = () => {
   const { t } = useI18n();
-  const [dataSource, setDataSource] = useState(data);
-  const [editData, setEditData] = useState<Partial<RuleItem>>()
-  const [actionsContainer, setActionsContainer] = useState<HTMLElement | null>(null);
-  const [form] = useForm<RuleItem>()
-  const colorOptions = useMemo(() => COLOR_KEYS.map(value => ({ value, label: t(value) })), [t]);
+  const [dataSource, setDataSource] = useState<RuleItem[]>([]);
+  const [editData, setEditData] = useState<Partial<RuleItem>>();
+  const [form] = useForm<RuleItem>();
 
-  const columns: ColumnsType<RuleItem> = [
-    {
-      key: 'sort',
-      fixed: 'left',
-      align: 'center',
-      width: 40,
-      render: () => <DragHandle />
-    },
-    {
-      title: t('groupTitle'),
-      fixed: 'left',
-      dataIndex: 'name',
-      className: 'drag-visible',
-    },
-    {
-      title: t('matchMode'),
-      dataIndex: 'matchType',
-      width: 80,
-      render(value) {
-        const data = [t('domain'), t('regExp')][value]
-        return <Tag color={['blue', 'green'][value]}>{data}</Tag>
-      },
-    },
-    {
-      title: t('matchContent'),
-      dataIndex: 'matchContent',
-      render: value => <span className="u-mono">{value}</span>
-    },
-    {
-      title: t('actions'),
-      fixed: 'right',
-      width: 58,
-      align: 'center',
-      className: 'rules-action-cell',
-      render: (_, record) =>
-        <Space className="operations">
-          <Button
-            type="text"
-            size="small"
-            icon={<EditOutlined />}
-            aria-label={t('edit')}
-            title={t('edit')}
-            onClick={() => {
-              setEditData(record)
-              form.setFieldsValue(record)
-            }}
-          />
+  const colorOptions = useMemo(
+    () => COLOR_KEYS.map(value => ({
+      value,
+      label: (
+        <span className="rule-color-option">
+          <span style={{ background: COLOR_VALUES[value] }} />
+          {t(value)}
+        </span>
+      ),
+    })),
+    [t],
+  );
 
-          <Popconfirm
-            placement="left"
-            title={t('deleteRuleConfirm')}
-            onConfirm={() => handleDelete(record.sortIndex)}>
-            <Button
-              type="text"
-              danger
-              size="small"
-              icon={<DeleteOutlined />}
-              aria-label={t('delete')}
-              title={t('delete')}
-            />
-          </Popconfirm>
-        </Space>
-    },
-  ];
-
-  /** 删除规则 */
-  const handleDelete = useCallback((index: number) => {
-    const newData = dataSource.filter(item => item.sortIndex !== index);
-    chrome.storage.sync.set({ [StorageKeyEnum.RULES]: newData })
-      .then(() => setDataSource(newData))
-      .then(() => reloadConfig(t('ruleUpdateSuccess')))
-  }, [dataSource, t]);
-
-  /** 获取当前tab链接 */
-  const getCurrentTabUrl = useCallback(async () => {
-    const currentTab = await chrome.tabs.query({ active: true })
-    if (currentTab.length) {
-      const url = new URL(currentTab[0].url as string);
-      form.setFieldsValue({
-        matchContent: (form.getFieldValue('matchContent') || '') + url.host
-      })
+  const notifyRuleUpdate = useCallback(() => {
+    if (typeof chrome !== 'undefined' && Boolean(chrome.runtime?.id)) {
+      reloadConfig(t('ruleUpdateSuccess'));
+    } else {
+      message.success(t('ruleUpdateSuccess'));
     }
-  }, [form])
+  }, [t]);
 
-  const onDragEnd = ({ active, over }: DragEndEvent) => {
-    if (active.id !== over?.id) {
-      setDataSource((prevState) => {
-        const activeIndex = prevState.findIndex((record) => record.ruleId === active?.id);
-        const overIndex = prevState.findIndex((record) => record.ruleId === over?.id);
-        const newDataSource = arrayMove(prevState, activeIndex, overIndex).map((item, index) => ({ ...item, sortIndex: index }));
-
-        chrome.storage.sync.set({ [StorageKeyEnum.RULES]: newDataSource })
-          .then(() => reloadConfig(t('ruleUpdateSuccess')))
-
-        return newDataSource;
-      });
-    }
-  };
-
-  useEffect(() => {
-    reloadRules()
-  }, [])
-
-  useEffect(() => {
-    if (!showActions) {
-      setActionsContainer(null);
+  const reloadRules = useCallback(async () => {
+    if (!canUseStorage()) {
+      setDataSource(createDemoRules());
       return;
     }
 
-    setActionsContainer(document.getElementById(ACTIONS_SLOT_ID));
-  }, [showActions]);
+    const response = await chrome.storage.sync.get(StorageKeyEnum.RULES);
+    const rules: RuleItem[] = response[StorageKeyEnum.RULES] || [];
+    const normalizedRules = rules.map((item, index) => ({
+      ...item,
+      ruleId: item.ruleId || uuid(),
+      priority: item.priority ?? 0,
+      sortIndex: index,
+    }));
 
-  const onFormOk = async () => {
-    await form.validateFields()
-    const newDataSource = [...dataSource]
-    const formData: RuleItem = form.getFieldsValue()
-    const data = Object.assign<Partial<RuleItem>, RuleItem>({
-      sortIndex: editData?.sortIndex ?? Math.max(...dataSource.map(o => o.sortIndex)) + 1,
-      ruleId: editData?.ruleId ?? uuid(),
-      groupTitle: formData.name,
-    }, formData)
+    setDataSource(normalizedRules);
+    if (rules.some(item => !item.ruleId || item.priority === undefined)) {
+      await chrome.storage.sync.set({ [StorageKeyEnum.RULES]: normalizedRules });
+    }
+  }, []);
 
-    if (editData?.ruleId) {
-      const index = newDataSource.findIndex(o => o.ruleId === editData.ruleId)
-      newDataSource[index] = data
-    } else {
-      newDataSource.push(data)
+  const persistRules = useCallback(async (rules: RuleItem[]) => {
+    setDataSource(rules);
+    if (canUseStorage()) await chrome.storage.sync.set({ [StorageKeyEnum.RULES]: rules });
+    notifyRuleUpdate();
+  }, [notifyRuleUpdate]);
+
+  const handleDelete = useCallback((sortIndex: number) => {
+    const nextRules = dataSource
+      .filter(item => item.sortIndex !== sortIndex)
+      .map((item, index) => ({ ...item, sortIndex: index }));
+    persistRules(nextRules);
+  }, [dataSource, persistRules]);
+
+  const openEditor = useCallback((rule?: RuleItem) => {
+    const nextValue: Partial<RuleItem> = rule || {
+      matchType: MatchTypeEnum.Domain,
+      groupColor: 'blue',
+    };
+    setEditData(nextValue);
+    form.setFieldsValue(nextValue);
+  }, [form]);
+
+  const closeEditor = useCallback(() => {
+    setEditData(undefined);
+    form.resetFields();
+  }, [form]);
+
+  const getCurrentTabUrl = useCallback(async () => {
+    if (typeof chrome === 'undefined' || !chrome.tabs?.query) {
+      form.setFieldsValue({ matchContent: 'example.com' });
+      return;
     }
 
-    chrome.storage.sync.set({ [StorageKeyEnum.RULES]: newDataSource })
-      .then(() => {
-        setDataSource(newDataSource)
-        setEditData(undefined)
-        form.resetFields()
-        reloadConfig(t('ruleUpdateSuccess'))
-      })
-  }
+    const currentTabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!currentTabs.length || !currentTabs[0].url) return;
+    const url = new URL(currentTabs[0].url);
+    form.setFieldsValue({
+      matchContent: `${form.getFieldValue('matchContent') || ''}${url.host}`,
+    });
+  }, [form]);
 
-  const closeModal = useCallback(() => {
-    setEditData(undefined)
-    form.resetFields()
-  }, [form])
+  const onDragEnd = ({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id) return;
 
-  const reloadRules = useCallback(() => {
-    chrome.storage.sync.get(StorageKeyEnum.RULES).then(res => {
-      const rules: RuleItem[] = res[StorageKeyEnum.RULES] || []
+    const activeIndex = dataSource.findIndex(record => record.ruleId === active.id);
+    const overIndex = dataSource.findIndex(record => record.ruleId === over.id);
+    const nextRules = arrayMove(dataSource, activeIndex, overIndex)
+      .map((item, index) => ({ ...item, sortIndex: index }));
+    persistRules(nextRules);
+  };
 
-      const dataSource = rules.map((item: RuleItem, i: number) =>
-        ({ ...item, ruleId: item.ruleId || uuid(), priority: item.priority ?? 0, sortIndex: i }))
+  const onFormOk = async () => {
+    await form.validateFields();
+    const formData = form.getFieldsValue();
+    const nextRules = [...dataSource];
+    const nextRule: RuleItem = {
+      ...formData,
+      sortIndex: editData?.sortIndex ?? Math.max(-1, ...dataSource.map(item => item.sortIndex)) + 1,
+      ruleId: editData?.ruleId || uuid(),
+      priority: editData?.priority ?? 0,
+      groupTitle: formData.name,
+    };
 
-      setDataSource(dataSource)
+    if (editData?.ruleId) {
+      const index = nextRules.findIndex(item => item.ruleId === editData.ruleId);
+      nextRules[index] = nextRule;
+    } else {
+      nextRules.push(nextRule);
+    }
 
-      if (rules.some((o: RuleItem) => !o.ruleId || o.priority === void 0)) {
-        chrome.storage.sync.set({
-          [StorageKeyEnum.RULES]: dataSource
-        })
-      }
-    })
-  }, [])
+    await persistRules(nextRules);
+    closeEditor();
+  };
+
+  useEffect(() => {
+    reloadRules();
+  }, [reloadRules]);
 
   const actions = (
-    <Space className="rules-toolbar">
-      <Button
-        onClick={() => {
-          form.setFieldsValue({
-            matchType: 0,
-            groupColor: 'blue',
-          })
-          setEditData({})
-        }}>
-        {t('addRule')}</Button>
-      <Button
-        onClick={() => {
-          reloadRules()
-          reloadConfig(t('ruleUpdateSuccess'))
-        }}>{t('refreshRules')}</Button>
-    </Space>
+    <>
+      <Button icon={<ReloadOutlined />} onClick={() => {
+        reloadRules();
+        notifyRuleUpdate();
+      }}>
+        {t('refreshRules')}
+      </Button>
+      <Button type="primary" icon={<PlusOutlined />} onClick={() => openEditor()}>
+        {t('newRule')}
+      </Button>
+    </>
   );
 
   return (
-    <>
-      {showActions && actionsContainer && createPortal(actions, actionsContainer)}
-      <div className="container rules">
-      <DndContext
-        onDragEnd={onDragEnd}
-        modifiers={[restrictToVerticalAxis]}
-      >
-        <SortableContext items={dataSource.map((item) => item.ruleId)} strategy={verticalListSortingStrategy}>
-          <Table
-            size="small"
-            pagination={false}
-            dataSource={dataSource}
-            columns={columns}
-            rowKey="ruleId"
-            components={{
-              body: { row: TableRow },
-            }}
-            locale={{
-              emptyText: t('noRules')
-            }}
-            scroll={{ x: 'max-content', y: 410 }}
-          />
-        </SortableContext>
-      </DndContext>
+    <section className="popup-screen rules-screen">
+      <PageHeader title={t('tabRules')} subtitle={t('rulesDescription')} actions={actions} />
+
+      <div className="rules-list">
+        <div className="rules-list-header">
+          <span />
+          <span>{t('groupTitle')}</span>
+          <span>{t('matchMode')}</span>
+          <span>{t('matchContent')}</span>
+          <span>{t('groupColor')}</span>
+          <span>{t('actions')}</span>
+        </div>
+
+        <DndContext onDragEnd={onDragEnd} modifiers={[restrictToVerticalAxis]}>
+          <SortableContext
+            items={dataSource.map(item => item.ruleId)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="rules-list-body screen-scroll">
+              {dataSource.map(rule => (
+                <SortableRuleRow
+                  key={rule.ruleId}
+                  rule={rule}
+                  onEdit={openEditor}
+                  onDelete={handleDelete}
+                />
+              ))}
+              {!dataSource.length && <div className="rules-empty">{t('noRules')}</div>}
+            </div>
+          </SortableContext>
+        </DndContext>
+      </div>
+
+      <div className="rules-hint">
+        <InfoCircleOutlined />
+        <span>{t('rulePriorityHint')}</span>
+      </div>
+
       <Drawer
-        title={editData?.ruleId ? t('editRule') : t('newRule')}
-        width={500}
-        zIndex={99999}
-        open={!!editData}
-        onClose={closeModal}
-        footer={
-          <Row justify="end">
-            <Space>
-              <Button onClick={closeModal}>{t('cancel')}</Button>
-              <Button type="primary" onClick={() => onFormOk()}>{t('confirm')}</Button>
-            </Space>
-          </Row>
-        }
+        rootClassName="rule-editor-drawer"
+        width={294}
+        open={Boolean(editData)}
+        onClose={closeEditor}
+        title={(
+          <div className="drawer-heading">
+            <strong>{editData?.ruleId ? t('editRule') : t('newRule')}</strong>
+            <span>{t('ruleEditorDescription')}</span>
+          </div>
+        )}
+        footer={(
+          <div className="drawer-footer-actions">
+            <Button onClick={closeEditor}>{t('cancel')}</Button>
+            <Button type="primary" onClick={onFormOk}>{t('saveRule')}</Button>
+          </div>
+        )}
       >
-        <Form form={form} labelCol={{ span: 5 }}>
+        <Form form={form} layout="vertical" className="rule-editor-form">
           <Form.Item
-            required
-            className="u-mb-15"
             label={t('groupTitle')}
             name="name"
-            rules={[{ required: true, message: t('ruleNameRequired') }]}>
+            rules={[{ required: true, message: t('ruleNameRequired') }]}
+          >
             <Input placeholder={t('groupTitlePlaceholder')} allowClear />
           </Form.Item>
-          {/* <Form.Item className="u-mb-15" label="分组标题" name="groupTitle">
-            <Input placeholder='请输入' allowClear />
-          </Form.Item> */}
-          <Form.Item className="u-mb-15" label={t('priority')} name="priority" hidden>
-            <Input type="number" step={1} min={0} defaultValue={0} />
-          </Form.Item>
-          <Form.Item className="u-mb-15" label={t('groupColor')} name="groupColor">
+
+          <Form.Item
+            label={t('groupColor')}
+            name="groupColor"
+            rules={[{ required: true, message: t('groupColorRequired') }]}
+          >
             <Select options={colorOptions} placeholder={t('groupColorPlaceholder')} />
           </Form.Item>
-          <Form.Item className="u-mb-15" label={t('matchMode')} name="matchType" required rules={[{ required: true, message: t('matchModeRequired') }]}>
-            <Radio.Group>
-              <Radio value={0}>{t('matchByDomain')}</Radio>
-              <Radio value={1}>{t('matchByRegExp')}</Radio>
+
+          <Form.Item
+            label={t('matchMode')}
+            name="matchType"
+            rules={[{ required: true, message: t('matchModeRequired') }]}
+          >
+            <Radio.Group className="rule-match-mode" optionType="button" buttonStyle="outline">
+              <Radio.Button value={MatchTypeEnum.Domain}>{t('matchByDomain')}</Radio.Button>
+              <Radio.Button value={MatchTypeEnum.RegExp}>{t('regExp')}</Radio.Button>
             </Radio.Group>
           </Form.Item>
+
           <Form.Item
-            className="u-mb-15"
-            required
-            label={t('matchContent')}
+            className="rule-content-item"
+            label={(
+              <span className="rule-content-label">
+                <span>{t('matchContent')}</span>
+                <Button type="link" icon={<LinkOutlined />} onClick={getCurrentTabUrl}>
+                  {t('insertCurrentDomain')}
+                </Button>
+              </span>
+            )}
             name="matchContent"
-            style={{ marginBottom: 0 }}
             rules={[{ required: true, message: t('matchContentRequired') }]}
-            extra={
-              <>
-                <Button type="link" style={{ padding: 0 }} onClick={getCurrentTabUrl}>{t('insertCurrentDomain')}</Button>
-                <span> {t('regExpMatchTip')}</span>
-              </>
-            }>
+            extra={t('regExpMatchTip')}
+          >
             <Input.TextArea
-              autoSize={{ minRows: 2 }}
+              autoSize={{ minRows: 3, maxRows: 5 }}
               placeholder={t('inputPlaceholder')}
               allowClear
-              styles={{ textarea: { fontFamily: 'PuHuiTi' } }}
             />
           </Form.Item>
         </Form>
       </Drawer>
-    </div>
-    </>
+    </section>
   );
 };
 

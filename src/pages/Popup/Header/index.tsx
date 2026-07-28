@@ -1,31 +1,57 @@
 import React from 'react';
+import {
+  AppstoreOutlined,
+  FolderOpenOutlined,
+  InfoCircleOutlined,
+  SettingOutlined,
+} from '@ant-design/icons';
 import Logo from '@/assets/img/icon.svg';
-import { Row, theme } from 'antd';
+import SidebarTexture from '@/assets/img/ui/sidebar-aurora.png';
 import { useI18n } from '@/common/i18n';
 
-const headStyle = {
-  fontSize: 24,
-  marginLeft: 10,
-  marginTop: 0,
-  marginBottom: 0,
-  color: '#2E75E5'
+export type PopupPageKey = 'tabOverview' | 'rules' | 'setting' | 'about';
+
+interface HeaderProps {
+  activeKey: PopupPageKey;
+  onChange: (key: PopupPageKey) => void;
 }
 
-export const Header = () => {
-  const { token } = theme.useToken();
+export const Header: React.FC<HeaderProps> = ({ activeKey, onChange }) => {
   const { t } = useI18n();
+  const items = [
+    { key: 'tabOverview' as const, label: t('navTabs'), icon: <FolderOpenOutlined /> },
+    { key: 'rules' as const, label: t('navRules'), icon: <AppstoreOutlined /> },
+    { key: 'setting' as const, label: t('navSettings'), icon: <SettingOutlined /> },
+    { key: 'about' as const, label: t('navAbout'), icon: <InfoCircleOutlined /> },
+  ];
 
   return (
-    <Row
-      style={{ padding: '10px 20px 0px 20px' }}
-      align="middle"
-      justify="space-between">
-      <Row align="middle">
-        <img src={Logo} style={{ height: 40 }} />
-        <h1 style={headStyle}>{t('appTitle')}</h1>
-      </Row>
-    </Row>
-  )
+    <aside
+      className="popup-sidebar"
+      style={{ backgroundImage: `url(${SidebarTexture})` }}
+      aria-label={t('appTitle')}
+    >
+      <div className="popup-brand">
+        <img src={Logo} alt="" className="popup-brand-logo" />
+        <span className="popup-brand-name">TabAssistant</span>
+      </div>
+
+      <nav className="popup-navigation">
+        {items.map(item => (
+          <button
+            key={item.key}
+            type="button"
+            className={`popup-navigation-item${activeKey === item.key ? ' is-active' : ''}`}
+            onClick={() => onChange(item.key)}
+            aria-current={activeKey === item.key ? 'page' : undefined}
+          >
+            <span className="popup-navigation-icon">{item.icon}</span>
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </nav>
+    </aside>
+  );
 }
 
 export default Header

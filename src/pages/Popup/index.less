@@ -1,69 +1,277 @@
-// @import '~antd/dist/antd.less';
-
-@primary-color: #7266C0;
-
 html,
 body {
   width: 750px;
   height: 600px;
   margin: 0;
+  overflow: hidden;
+  color: #121a2a;
+  background: #f9fbff;
 
   * {
     font-family: 'PuHuiTi';
+    box-sizing: border-box;
   }
 }
 
 #app-container {
-  height: 100vh;
-  box-sizing: border-box;
-  position: relative;
-  border: 3px solid #2E75E5;
+  width: 750px;
+  height: 600px;
   overflow: hidden;
 }
 
 .popup-app {
   display: flex;
-  flex-direction: column;
+  width: 100%;
   height: 100%;
+  color: #141c2c;
+  background: #fbfcff;
   overflow: hidden;
 }
 
-.ant-tabs {
-  min-height: 0;
-  flex: 1;
-}
-
-.ant-tabs-content,
-.ant-tabs-tabpane {
+.popup-sidebar {
+  position: relative;
+  flex: 0 0 120px;
+  width: 120px;
   height: 100%;
-  min-height: 0;
-  overflow: visible;
+  padding: 18px 7px;
+  background-color: #eef7ff;
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  border-right: 1px solid rgba(35, 105, 235, 0.09);
+  overflow: hidden;
 }
 
-.ant-tabs-tab {
-  letter-spacing: 1px;
+.popup-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 30px;
 }
 
-.popup-tab-actions-slot {
+.popup-brand-logo {
+  display: block;
+  width: 38px;
+  height: 38px;
+}
+
+.popup-brand-name {
+  color: #1760d9;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+
+.popup-navigation {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.popup-navigation-item {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  padding-bottom: 10px;
-  min-width: 188px;
-
-  .tab-overview-toolbar,
-  .rules-toolbar {
-    gap: 8px !important;
-  }
+  gap: 10px;
+  width: 100%;
+  height: 42px;
+  padding: 0 11px;
+  color: #303b4f;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: color 160ms ease, background 160ms ease, border-color 160ms ease;
 }
 
-.ant-table-row .ant-table-cell {
-  padding: 4px 8px !important;
+.popup-navigation-item:focus {
+  outline: none;
+}
+
+.popup-navigation-item:focus-visible {
+  outline: 2px solid rgba(33, 103, 243, 0.38);
+  outline-offset: -2px;
+}
+
+.popup-navigation-item::before {
+  position: absolute;
+  top: 7px;
+  bottom: 7px;
+  left: -7px;
+  width: 3px;
+  background: transparent;
+  border-radius: 0 999px 999px 0;
+  content: '';
+}
+
+.popup-navigation-item:hover {
+  color: #1f65e8;
+  background: rgba(255, 255, 255, 0.52);
+}
+
+.popup-navigation-item.is-active {
+  color: #1763e8;
+  background: rgba(255, 255, 255, 0.76);
+  border-color: rgba(31, 103, 239, 0.16);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+}
+
+.popup-navigation-item.is-active::before {
+  background: #2167f3;
+}
+
+.popup-navigation-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 20px;
+  font-size: 20px;
+}
+
+.popup-content {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  background: #fbfcff;
+  overflow: hidden;
+}
+
+.popup-screen {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 21px 20px 18px;
+  overflow: hidden;
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex: 0 0 auto;
+  gap: 18px;
+  min-height: 54px;
+  margin-bottom: 16px;
+}
+
+.page-header-copy {
+  min-width: 0;
+  padding-top: 1px;
+}
+
+.page-header h1 {
+  margin: 0;
+  color: #111827;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.45px;
+  line-height: 1.18;
+}
+
+.page-header p {
+  margin: 6px 0 0;
+  color: #637087;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.page-header-actions .ant-btn {
+  height: 34px;
+  padding-inline: 13px;
+  border-color: #dce2ec;
+  border-radius: 8px;
+  box-shadow: none;
+  font-size: 13px;
+}
+
+.page-header-actions .ant-btn-primary {
+  border-color: #2167f3;
+  background: #2167f3;
 }
 
 .popup-tab-loading {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 420px;
+  height: 100%;
+}
+
+.screen-scroll {
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: none;
+}
+
+.screen-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.is-dark {
+  color: #edf2ff;
+  background: #0f1724;
+}
+
+.is-dark .popup-sidebar {
+  background-color: #101d2f;
+  background-blend-mode: multiply;
+  border-right-color: rgba(131, 176, 255, 0.12);
+}
+
+.is-dark .popup-brand-name,
+.is-dark .popup-navigation-item.is-active {
+  color: #7eb0ff;
+}
+
+.is-dark .popup-navigation-item {
+  color: #c8d2e3;
+}
+
+.is-dark .popup-navigation-item.is-active {
+  background: rgba(30, 56, 91, 0.72);
+  border-color: rgba(102, 155, 255, 0.24);
+  box-shadow: none;
+}
+
+.is-dark .popup-navigation-item:hover {
+  background: rgba(30, 56, 91, 0.48);
+}
+
+.is-dark .popup-content,
+.is-dark .popup-screen {
+  background: #101722;
+}
+
+.is-dark .page-header h1 {
+  color: #f4f7fc;
+}
+
+.is-dark .page-header p {
+  color: #98a8bf;
+}
+
+.is-dark .page-header-actions .ant-btn-default {
+  color: #d8e2f0;
+  background: #162235;
+  border-color: #34445a;
+}
+
+.is-dark .page-header-actions .ant-btn-default:hover,
+.is-dark .page-header-actions .ant-btn-default:focus-visible {
+  color: #fff;
+  background: #1c2b41;
+  border-color: #4c6486;
 }

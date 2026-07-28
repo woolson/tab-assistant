@@ -1,5 +1,6 @@
 export type GroupColorEnum = chrome.tabGroups.ColorEnum
 export type Language = 'zh-CN' | 'en-US'
+export type ThemeMode = 'system' | 'light' | 'dark'
 
 /** 规则信息 */
 export interface RuleItem {
@@ -60,5 +61,9 @@ export interface TabAssistantConfig {
      * 弹窗界面语言
      */
     language?: Language
+    /**
+     * 弹窗界面主题
+     */
+    theme?: ThemeMode
   }
 }

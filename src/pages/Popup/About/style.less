@@ -1,3 +1,340 @@
-.tab-assistant-about {
-  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+.about-screen .page-header {
+  margin-bottom: 34px;
+}
+
+.about-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(220px, 1fr);
+  flex: 0 0 338px;
+  min-height: 0;
+}
+
+.about-brand-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  padding: 22px 24px 16px 13px;
+  border-right: 1px solid #e1e7ef;
+}
+
+.about-logo {
+  display: block;
+  width: 102px;
+  height: 102px;
+  margin-bottom: 15px;
+}
+
+.about-brand-panel h2 {
+  margin: 0;
+  color: #111827;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.35px;
+  line-height: 1.25;
+}
+
+.about-brand-panel > p {
+  margin: 8px 0 0;
+  color: #66738a;
+  font-size: 13px;
+}
+
+.about-privacy {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 18px;
+  color: #354156;
+  font-size: 13px;
+}
+
+.about-privacy .anticon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: #2167f3;
+  background: #f3f7ff;
+  border: 1px solid #d7e3fb;
+  border-radius: 50%;
+}
+
+.about-transfer-actions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  margin-top: 28px;
+  padding-top: 21px;
+  border-top: 1px solid #e2e7ef;
+}
+
+.about-transfer-actions .ant-btn {
+  flex: 1 1 0;
+  height: 35px;
+  padding-inline: 8px;
+  border-color: #cad3df;
+  border-radius: 8px;
+  box-shadow: none;
+  font-size: 11px;
+}
+
+.about-release-panel {
+  min-width: 0;
+  padding: 21px 4px 10px 25px;
+}
+
+.about-release-label {
+  display: block;
+  color: #263145;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.about-release-panel > strong {
+  display: block;
+  margin-top: 10px;
+  color: #101827;
+  font-size: 31px;
+  font-weight: 750;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+
+.about-release-panel > time {
+  display: block;
+  margin-top: 8px;
+  color: #6f7c91;
+  font-size: 12px;
+}
+
+.about-changelog-link {
+  height: 30px;
+  margin: 12px 0 9px;
+  padding: 0 !important;
+  font-size: 12px;
+}
+
+.about-link-list {
+  border-top: 1px solid #e2e7ef;
+}
+
+.about-link-list button {
+  display: grid;
+  grid-template-columns: max-content 1fr 16px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 42px;
+  padding: 0;
+  color: #303b50;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #e2e7ef;
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.about-link-list button > span:nth-child(2) {
+  overflow: hidden;
+  color: #5c687c;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.about-link-list button .anticon {
+  color: #657187;
+}
+
+.about-link-list button:hover,
+.about-link-list button:hover .anticon {
+  color: #2167f3;
+}
+
+.about-footer {
+  flex: 0 0 auto;
+  min-height: 56px;
+  margin-top: auto;
+  padding-top: 14px;
+  color: #8390a3;
+  border-top: 1px solid #e4e9f0;
+  font-size: 11px;
+  text-align: center;
+}
+
+.changelog-drawer .ant-drawer-header {
+  min-height: 68px;
+  padding: 17px 18px;
+  border-bottom: 0;
+}
+
+.changelog-drawer .ant-drawer-title {
+  color: #111827;
+  font-size: 21px;
+  font-weight: 700;
+}
+
+.changelog-drawer .ant-drawer-close {
+  order: 2;
+  margin-inline: 12px 0;
+}
+
+.changelog-drawer .ant-drawer-body {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 18px 15px;
+}
+
+.release-timeline {
+  position: relative;
+  flex: 1 1 auto;
+}
+
+.release-timeline::before {
+  position: absolute;
+  top: 11px;
+  bottom: 18px;
+  left: 5px;
+  width: 1px;
+  background: #dbe3ef;
+  content: '';
+}
+
+.release-entry {
+  position: relative;
+  margin-left: 5px;
+  padding: 0 0 14px 23px;
+  border-bottom: 1px solid #e5eaf1;
+}
+
+.release-entry + .release-entry {
+  padding-top: 13px;
+}
+
+.release-node {
+  position: absolute;
+  top: 8px;
+  left: -5px;
+  width: 10px;
+  height: 10px;
+  background: #16b886;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #16b886;
+}
+
+.release-entry.is-current .release-node,
+.release-entry-compact .release-node {
+  background: #2167f3;
+  box-shadow: 0 0 0 1px #2167f3;
+}
+
+.release-entry + .release-entry .release-node {
+  top: 21px;
+}
+
+.release-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.release-heading h3 {
+  margin: 0;
+  color: #131c2d;
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+.release-heading time {
+  display: block;
+  margin-top: 3px;
+  color: #7a8699;
+  font-size: 12px;
+}
+
+.release-badge {
+  padding: 3px 7px;
+  color: #0c9c69;
+  background: #effbf7;
+  border: 1px solid #bdebdc;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.release-badge-current {
+  color: #2167f3;
+  background: #f1f6ff;
+  border-color: #cadcff;
+}
+
+.release-entry h4 {
+  margin: 10px 0 5px;
+  color: #2167f3;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.release-entry ul {
+  margin: 8px 0 0;
+  padding-left: 16px;
+  color: #4b576b;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.release-entry li + li {
+  margin-top: 3px;
+}
+
+.release-entry-compact {
+  border-bottom: 0;
+}
+
+.full-changelog-link {
+  align-self: flex-start;
+  height: 28px;
+  margin-top: 2px;
+  padding: 0 !important;
+  font-size: 12px;
+}
+
+.is-dark .about-brand-panel {
+  border-right-color: #263345;
+}
+
+.is-dark .about-brand-panel h2,
+.is-dark .about-release-panel > strong,
+.is-dark .about-release-label {
+  color: #edf2fa;
+}
+
+.is-dark .about-transfer-actions,
+.is-dark .about-link-list,
+.is-dark .about-link-list button,
+.is-dark .about-footer {
+  border-color: #263345;
+}
+
+.is-dark .about-privacy,
+.is-dark .about-link-list button {
+  color: #c6d1e2;
+}
+
+.is-dark .about-transfer-actions .ant-btn {
+  color: #d8e2f0;
+  background: #162235;
+  border-color: #34445a;
+}
+
+.is-dark .about-transfer-actions .ant-btn:hover,
+.is-dark .about-transfer-actions .ant-btn:focus-visible {
+  color: #fff;
+  background: #1c2b41;
+  border-color: #4c6486;
 }

@@ -3,9 +3,97 @@
   <head>
     <meta charset="UTF-8" />
     <title></title>
+    <style>
+      html,
+      body,
+      #app-container {
+        width: 750px;
+        height: 600px;
+        margin: 0;
+        overflow: hidden;
+      }
+
+      body {
+        color: #141c2c;
+        background: #fbfcff;
+      }
+
+      .popup-boot {
+        display: flex;
+        width: 100%;
+        height: 100%;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      .popup-boot-sidebar {
+        flex: 0 0 120px;
+        width: 120px;
+        height: 100%;
+        background: #eef7ff;
+        border-right: 1px solid rgba(35, 105, 235, 0.09);
+      }
+
+      .popup-boot-main {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: 1 1 auto;
+        min-width: 0;
+        height: 100%;
+      }
+
+      .popup-boot-status {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #637087;
+        font-size: 13px;
+      }
+
+      .popup-boot-spinner {
+        width: 18px;
+        height: 18px;
+        border: 2px solid rgba(33, 103, 243, 0.2);
+        border-top-color: #2167f3;
+        border-radius: 50%;
+        animation: popup-boot-spin 700ms linear infinite;
+      }
+
+      @keyframes popup-boot-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @media (prefers-color-scheme: dark) {
+        body {
+          color: #edf2ff;
+          background: #101722;
+        }
+
+        .popup-boot-sidebar {
+          background: #101d2f;
+          border-right-color: rgba(131, 176, 255, 0.12);
+        }
+
+        .popup-boot-status {
+          color: #98a8bf;
+        }
+      }
+    </style>
   </head>
 
   <body>
-    <div id="app-container"></div>
+    <div id="app-container">
+      <div class="popup-boot">
+        <aside class="popup-boot-sidebar" aria-hidden="true"></aside>
+        <main class="popup-boot-main">
+          <div class="popup-boot-status" role="status" aria-live="polite">
+            <span class="popup-boot-spinner" aria-hidden="true"></span>
+            <span data-popup-boot-status>Loading…</span>
+          </div>
+        </main>
+      </div>
+    </div>
   </body>
 </html>
