@@ -147,8 +147,8 @@ export const About: React.FC<{
             <span className="release-node" />
             <div className="release-heading">
               <div>
-                <h3>v1.4.1</h3>
-                <time>2026-07-28</time>
+                <h3>v1.4.2</h3>
+                <time>2026-07-29</time>
               </div>
               <span className="release-badge release-badge-current">{t('currentVersionBadge')}</span>
             </div>
