@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Button,
   Checkbox,
-  Dropdown,
   Empty,
   Input,
   message,
@@ -10,15 +9,13 @@ import {
   Tooltip,
 } from 'antd';
 import {
-  CloseOutlined,
+  CloseCircleFilled,
+  CloseCircleOutlined,
   DeleteOutlined,
-  DownOutlined,
   GlobalOutlined,
-  MoreOutlined,
   PushpinOutlined,
   SearchOutlined,
   SoundOutlined,
-  UpOutlined,
 } from '@ant-design/icons';
 import PageHeader from '../PageHeader';
 import './style.less';
@@ -638,10 +635,7 @@ const TabOverview: React.FC = () => {
                   if (event.key === 'Enter' || event.key === ' ') handleToggleGroup(group);
                 }}
               >
-                <span className="tab-group-dot" aria-hidden="true" />
-                <strong>{group.title}</strong>
-                <span className="tab-group-count">{group.count || 0}</span>
-                <span className="tab-group-spacer" />
+                {!batchMode && <span className="tab-group-dot" aria-hidden="true" />}
 
                 {batchMode && (
                   <Checkbox
@@ -653,30 +647,20 @@ const TabOverview: React.FC = () => {
                   />
                 )}
 
-                <span className="tab-group-expand" aria-hidden="true">
-                  {isExpanded ? <UpOutlined /> : <DownOutlined />}
-                </span>
+                <strong>{group.title}</strong>
+                <span className="tab-group-count">{group.count || 0}</span>
+                <span className="tab-group-spacer" />
 
-                <Dropdown
-                  trigger={['click']}
-                  menu={{
-                    items: [{
-                      key: 'close',
-                      danger: true,
-                      icon: <DeleteOutlined />,
-                      label: t('closeGroup'),
-                      onClick: () => handleCloseRecord(group),
-                    }],
+                <Button
+                  type="text"
+                  className="tab-group-close-button"
+                  icon={<CloseCircleFilled />}
+                  onClick={event => {
+                    event.stopPropagation();
+                    handleCloseRecord(group);
                   }}
-                >
-                  <Button
-                    type="text"
-                    className="tab-group-more"
-                    icon={<MoreOutlined />}
-                    onClick={event => event.stopPropagation()}
-                    aria-label={t('actions')}
-                  />
-                </Dropdown>
+                  aria-label={t('closeGroup')}
+                />
               </div>
 
               {isExpanded && Boolean(group.children?.length) && (
@@ -720,7 +704,7 @@ const TabOverview: React.FC = () => {
                       <Button
                         type="text"
                         className="tab-close-button"
-                        icon={<CloseOutlined />}
+                        icon={<CloseCircleOutlined />}
                         onClick={event => {
                           event.stopPropagation();
                           handleCloseRecord(tab);

@@ -1,0 +1,147 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <linearGradient id="leftShade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#061124" stop-opacity="0.98"/>
+      <stop offset="0.72" stop-color="#07152e" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#07152e" stop-opacity="0.18"/>
+    </linearGradient>
+    <linearGradient id="headline" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.62" stop-color="#d9edff"/>
+      <stop offset="1" stop-color="#67e8f9"/>
+    </linearGradient>
+    <linearGradient id="cardStroke" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7dd3fc"/>
+      <stop offset="0.5" stop-color="#1677ff"/>
+      <stop offset="1" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <linearGradient id="pill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#142b51" stop-opacity="0.96"/>
+      <stop offset="1" stop-color="#0b1830" stop-opacity="0.9"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dx="0" dy="22" stdDeviation="22" flood-color="#020617" flood-opacity="0.62"/>
+    </filter>
+    <filter id="smallShadow" x="-25%" y="-25%" width="150%" height="170%">
+      <feDropShadow dx="0" dy="12" stdDeviation="12" flood-color="#020617" flood-opacity="0.54"/>
+    </filter>
+    <clipPath id="mainClip">
+      <rect x="814" y="112" width="712" height="568" rx="22"/>
+    </clipPath>
+    <clipPath id="ruleClip">
+      <rect x="650" y="500" width="510" height="407" rx="19"/>
+    </clipPath>
+    <clipPath id="settingsClip">
+      <rect x="1120" y="548" width="410" height="327" rx="19"/>
+    </clipPath>
+  </defs>
+
+  <image href="source/generated-background.png" x="0" y="0" width="1600" height="900" preserveAspectRatio="xMidYMid slice"/>
+  <rect x="0" y="0" width="760" height="900" fill="url(#leftShade)"/>
+  <rect x="0" y="0" width="1600" height="900" fill="#020617" opacity="0.08"/>
+
+  <g font-family="PingFang SC, Noto Sans CJK SC, Microsoft YaHei, sans-serif">
+    <g transform="translate(72 62)">
+      <rect x="0" y="0" width="86" height="86" rx="23" fill="#ffffff" opacity="0.98"/>
+      <image href="../../src/assets/img/icon-128.png" x="11" y="11" width="64" height="64"/>
+      <text x="108" y="34" fill="#ffffff" font-size="29" font-weight="700">TabAssistant</text>
+      <text x="108" y="67" fill="#9fbbe8" font-size="18" font-weight="500" letter-spacing="2">BROWSER TAB AUTOMATION</text>
+      <g transform="translate(390 7)">
+        <rect width="104" height="40" rx="20" fill="#1677ff"/>
+        <text x="52" y="27" text-anchor="middle" fill="#ffffff" font-size="17" font-weight="700">v1.3.3</text>
+      </g>
+    </g>
+
+    <text x="72" y="242" fill="url(#headline)" font-size="66" font-weight="800" letter-spacing="-1">让标签页</text>
+    <text x="72" y="318" fill="url(#headline)" font-size="66" font-weight="800" letter-spacing="-1">自动回到秩序</text>
+    <text x="76" y="369" fill="#b8cae8" font-size="23" font-weight="500">按规则自动分组，支持多窗口与批量管理。</text>
+    <text x="76" y="405" fill="#8198bf" font-size="20">专注浏览，而不是整理浏览器。</text>
+
+    <g transform="translate(72 452)">
+      <g transform="translate(0 0)">
+        <rect width="268" height="70" rx="18" fill="url(#pill)" stroke="#34527f" stroke-width="1.5"/>
+        <circle cx="30" cy="35" r="12" fill="#1677ff"/>
+        <path d="M24 35l4 4 8-9" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="54" y="29" fill="#fff" font-size="18" font-weight="700">自定义分组规则</text>
+        <text x="54" y="51" fill="#8fabd2" font-size="14">域名 / 正则 / 分组颜色</text>
+      </g>
+      <g transform="translate(286 0)">
+        <rect width="268" height="70" rx="18" fill="url(#pill)" stroke="#34527f" stroke-width="1.5"/>
+        <circle cx="30" cy="35" r="12" fill="#38d6c8"/>
+        <path d="M24 35l4 4 8-9" fill="none" stroke="#032521" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="54" y="29" fill="#fff" font-size="18" font-weight="700">自动分组与排序</text>
+        <text x="54" y="51" fill="#8fabd2" font-size="14">规则优先级 / 拖拽排序</text>
+      </g>
+
+      <g transform="translate(0 86)">
+        <rect width="268" height="70" rx="18" fill="url(#pill)" stroke="#34527f" stroke-width="1.5"/>
+        <circle cx="30" cy="35" r="12" fill="#6b5cff"/>
+        <path d="M24 35l4 4 8-9" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="54" y="29" fill="#fff" font-size="18" font-weight="700">当前窗口批量管理</text>
+        <text x="54" y="51" fill="#8fabd2" font-size="14">查看 / 关闭 / 恢复标签页</text>
+      </g>
+      <g transform="translate(286 86)">
+        <rect width="268" height="70" rx="18" fill="url(#pill)" stroke="#34527f" stroke-width="1.5"/>
+        <circle cx="30" cy="35" r="12" fill="#0ea5e9"/>
+        <path d="M24 35l4 4 8-9" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="54" y="29" fill="#fff" font-size="18" font-weight="700">多窗口独立归位</text>
+        <text x="54" y="51" fill="#8fabd2" font-size="14">不串窗 / 原窗口恢复</text>
+      </g>
+
+      <g transform="translate(0 172)">
+        <rect width="268" height="70" rx="18" fill="url(#pill)" stroke="#34527f" stroke-width="1.5"/>
+        <circle cx="30" cy="35" r="12" fill="#14b8a6"/>
+        <path d="M24 35l4 4 8-9" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="54" y="29" fill="#fff" font-size="18" font-weight="700">一键折叠与展开</text>
+        <text x="54" y="51" fill="#8fabd2" font-size="14">快速收起所有标签分组</text>
+      </g>
+      <g transform="translate(286 172)">
+        <rect width="268" height="70" rx="18" fill="url(#pill)" stroke="#34527f" stroke-width="1.5"/>
+        <circle cx="30" cy="35" r="12" fill="#8b5cf6"/>
+        <path d="M24 35l4 4 8-9" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="54" y="29" fill="#fff" font-size="18" font-weight="700">本地文件自动归类</text>
+        <text x="54" y="51" fill="#8fabd2" font-size="14">file:// 标签单独分组</text>
+      </g>
+
+      <g transform="translate(0 258)">
+        <rect width="268" height="70" rx="18" fill="url(#pill)" stroke="#34527f" stroke-width="1.5"/>
+        <circle cx="30" cy="35" r="12" fill="#1677ff"/>
+        <path d="M24 35l4 4 8-9" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="54" y="29" fill="#fff" font-size="18" font-weight="700">忽略词与配置迁移</text>
+        <text x="54" y="51" fill="#8fabd2" font-size="14">关键词 / 导入 / 导出</text>
+      </g>
+      <g transform="translate(286 258)">
+        <rect width="268" height="70" rx="18" fill="url(#pill)" stroke="#34527f" stroke-width="1.5"/>
+        <circle cx="30" cy="35" r="12" fill="#38d6c8"/>
+        <path d="M24 35l4 4 8-9" fill="none" stroke="#032521" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="54" y="29" fill="#fff" font-size="18" font-weight="700">中英双语 · 深色模式</text>
+        <text x="54" y="51" fill="#8fabd2" font-size="14">界面跟随浏览器偏好</text>
+      </g>
+    </g>
+
+    <g transform="translate(72 824)">
+      <rect width="226" height="42" rx="21" fill="#0b2d2a" stroke="#26cdbd" stroke-width="1.5"/>
+      <circle cx="23" cy="21" r="6" fill="#38d6c8"/>
+      <text x="39" y="28" fill="#b9fff8" font-size="16" font-weight="700">完全本地 · 不上传数据</text>
+      <text x="246" y="28" fill="#8fabd2" font-size="16">Chrome · Edge</text>
+    </g>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="800" y="98" width="740" height="596" rx="28" fill="#07152d" opacity="0.72"/>
+    <rect x="812" y="110" width="716" height="572" rx="24" fill="#ffffff" stroke="url(#cardStroke)" stroke-width="4"/>
+    <image href="source/panel-current-tabs.png" x="814" y="112" width="712" height="568" preserveAspectRatio="xMidYMid slice" clip-path="url(#mainClip)"/>
+  </g>
+
+  <g filter="url(#smallShadow)" transform="rotate(-1.8 905 703)">
+    <rect x="638" y="488" width="534" height="431" rx="24" fill="#07152d" opacity="0.86"/>
+    <rect x="648" y="498" width="514" height="411" rx="21" fill="#ffffff" stroke="url(#cardStroke)" stroke-width="4"/>
+    <image href="source/panel-rules.png" x="650" y="500" width="510" height="407" preserveAspectRatio="xMidYMid slice" clip-path="url(#ruleClip)"/>
+  </g>
+
+  <g filter="url(#smallShadow)" transform="rotate(2.2 1325 710)">
+    <rect x="1108" y="536" width="434" height="351" rx="24" fill="#07152d" opacity="0.86"/>
+    <rect x="1118" y="546" width="414" height="331" rx="21" fill="#ffffff" stroke="url(#cardStroke)" stroke-width="4"/>
+    <image href="source/panel-settings.png" x="1120" y="548" width="410" height="327" preserveAspectRatio="xMidYMid slice" clip-path="url(#settingsClip)"/>
+  </g>
+</svg>

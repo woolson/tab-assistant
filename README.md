@@ -1,110 +1,108 @@
+<p align="right">
+  English · <a href="./README.zh-CN.md">简体中文</a>
+</p>
+
 <div align="center">
-  <img src="./src/assets/img/icon-128.png" width="96" height="96" alt="TabAssistant Logo">
+  <img src="./src/assets/img/icon-128.png" width="96" height="96" alt="TabAssistant logo">
   <h1>TabAssistant</h1>
-  <p>让浏览器标签页自动回到秩序</p>
+  <p>Bring browser tabs back into order</p>
   <p>
-    按规则自动分组 · 多窗口独立管理 · 本地运行
+    Rule-based auto-grouping · Independent multi-window management · Runs locally
   </p>
   <p>
-    <a href="https://chromewebstore.google.com/detail/obdaljfdjocbdmpofhncldmfppjeemda">Chrome / Edge 安装</a>
+    <a href="https://chromewebstore.google.com/detail/obdaljfdjocbdmpofhncldmfppjeemda">Install for Chrome / Edge</a>
     ·
-    <a href="https://github.com/woolson/tab-assistant/issues">问题反馈</a>
+    <a href="https://github.com/woolson/tab-assistant/issues">Feedback</a>
     ·
     <a href="./LICENSE">MIT License</a>
   </p>
 </div>
 
-![TabAssistant：标签页自动归位](./marketing/chrome-web-store-v1.4.1/01-main-tabs-preview-v2.png)
+![TabAssistant current tabs interface](./marketing/chrome-web-store-v1.4.1/en/01-current-tabs.png)
 
-## 为什么使用 TabAssistant
+## Why TabAssistant?
 
-标签页一多，找页面、理分组、切窗口都很费时间。
+As tabs pile up, finding pages, organizing groups, and switching between windows all become unnecessarily time-consuming.
 
-TabAssistant 会按照你设置的规则整理新打开的标签页，让散乱页面自动进入对应分组。你可以在一个界面中搜索、展开、折叠、关闭或恢复标签页，同时让不同浏览器窗口保持各自的整理秩序。
+TabAssistant organizes newly opened tabs according to your rules, automatically placing scattered pages into the right groups. From one interface, you can search, expand, collapse, close, or restore tabs while keeping every browser window independently organized.
 
-标签整理在浏览器本地完成，不会将浏览记录或标签页内容上传到 TabAssistant 的服务器。规则和设置保存在浏览器扩展存储中，可使用浏览器自身的同步能力。
+Tab organization happens locally in your browser. TabAssistant does not upload your browsing history or tab contents to its own servers. Rules and preferences are stored in browser extension storage and can use your browser's built-in sync capability.
 
-## 功能亮点
+## Features
 
-- **规则驱动的自动分组**：支持按域名或正则表达式匹配新标签页。
-- **清晰可控的规则管理**：自定义分组名称、颜色和匹配内容，通过拖拽调整优先级。
-- **当前窗口批量管理**：搜索标签页，一键展开或折叠分组，批量关闭并恢复误关页面。
-- **多窗口独立归位**：每个窗口分别管理，标签页保留在原来的浏览器窗口。
-- **本地文件自动归类**：`file://` 页面可自动进入“本地文件”分组。
-- **个性化外观**：支持亮色、暗色和跟随系统三种主题。
-- **中英文界面**：可在简体中文与 English 之间切换。
-- **配置迁移**：支持导入、导出分组规则和插件设置。
+- **Rule-based auto-grouping**: Match newly opened tabs by domain or regular expression.
+- **Clear, flexible rule management**: Customize group names, colors, and matching patterns, then drag rules to change their priority.
+- **Batch management for the current window**: Search tabs, expand or collapse all groups, close multiple tabs, and restore accidentally closed pages.
+- **Independent multi-window organization**: Manage every window separately and keep tabs in their original browser window.
+- **Automatic local-file grouping**: Place `file://` pages into a dedicated Local Files group.
+- **Personalized appearance**: Choose a light theme, dark theme, or follow your system setting.
+- **Chinese and English UI**: Switch between Simplified Chinese and English.
+- **Configuration migration**: Import and export grouping rules and extension preferences.
 
-## 界面预览
+## Interface Preview
 
-### 当前标签
+### Grouping Rules
 
-查看当前窗口中的全部分组和标签页，快速搜索或批量整理。
+Define automatic grouping rules with domains or regular expressions, then drag them to adjust matching priority.
 
-![TabAssistant 当前标签界面](./marketing/chrome-web-store-v1.4.1/zh-CN/01-current-tabs.png)
+![TabAssistant grouping rules interface](./marketing/chrome-web-store-v1.4.1/en/02-rules.png)
 
-### 分组规则
+### Rule Editor
 
-用域名或正则表达式定义自动分组规则，并通过拖拽调整匹配顺序。
+Configure the name, group color, matching method, and matching content for each rule.
 
-![TabAssistant 分组规则界面](./marketing/chrome-web-store-v1.4.1/zh-CN/02-rules.png)
+![TabAssistant rule editor](./marketing/chrome-web-store-v1.4.1/en/03-rule-editor.png)
 
-### 规则编辑
+### Theme and Language
 
-为每条规则设置名称、分组颜色、匹配方式和匹配内容。
+Choose light, dark, or system theme and switch the extension's display language.
 
-![TabAssistant 规则编辑界面](./marketing/chrome-web-store-v1.4.1/zh-CN/03-rule-editor.png)
+![TabAssistant settings interface](./marketing/chrome-web-store-v1.4.1/en/04-settings.png)
 
-### 主题与语言
-
-选择亮色、暗色或跟随系统主题，并切换插件界面语言。
-
-![TabAssistant 设置界面](./marketing/chrome-web-store-v1.4.1/zh-CN/04-settings.png)
-
-## 安装
+## Installation
 
 ### Chrome / Edge
 
-从 [Chrome Web Store](https://chromewebstore.google.com/detail/obdaljfdjocbdmpofhncldmfppjeemda) 安装。Microsoft Edge 同样支持安装 Chrome 扩展。
+Install TabAssistant from the [Chrome Web Store](https://chromewebstore.google.com/detail/obdaljfdjocbdmpofhncldmfppjeemda). Microsoft Edge can also install extensions from the Chrome Web Store.
 
-### 本地开发版本
+### Local Development Build
 
 ```bash
 npm ci
 npm run build
 ```
 
-然后打开浏览器的扩展管理页面，启用“开发者模式”，选择“加载已解压的扩展”，并加载项目中的 `build` 目录。
+Open your browser's extension management page, enable Developer mode, choose **Load unpacked**, and select the project's `build` directory.
 
-## 本地开发
+## Development
 
 ```bash
-# 安装依赖
+# Install dependencies
 npm ci
 
-# 启动本地开发服务
+# Start the local development server
 npm start
 
-# 生成生产构建
+# Create a production build
 npm run build
 
-# 仅构建后台脚本
+# Build only the background script
 npm run build:bg
 ```
 
-项目基于 React、TypeScript、Ant Design 和 Chrome Extension Manifest V3。
+TabAssistant is built with React, TypeScript, Ant Design, and Chrome Extension Manifest V3.
 
-## 权限与隐私
+## Permissions and Privacy
 
-TabAssistant 只申请实现标签分组所需的权限：
+TabAssistant requests only the permissions needed to organize browser tabs:
 
-- `tabs`：读取和管理浏览器标签页。
-- `tabGroups`：创建和管理标签页分组。
-- `storage`：在浏览器中保存规则、语言、主题等设置。
+- `tabs`: Read and manage browser tabs.
+- `tabGroups`: Create and manage tab groups.
+- `storage`: Save rules, language, theme, and other preferences in browser extension storage.
 
-插件的标签整理逻辑在本地运行，不会将浏览记录或标签页内容上传到 TabAssistant 的服务器。规则和设置保存在浏览器扩展存储中，并可能通过浏览器自身的同步机制在你的设备之间同步。
+Tab organization runs locally. TabAssistant does not upload your browsing history or tab contents to its own servers. Rules and preferences are stored in browser extension storage and may sync between your devices through your browser's own synchronization mechanism.
 
-## 相关文档
+## Related Documentation
 
 - [Chrome Extension Manifest V3](https://developer.chrome.com/docs/extensions/mv3/manifest/)
 - [Chrome Tabs API](https://developer.chrome.com/docs/extensions/reference/api/tabs)

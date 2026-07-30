@@ -36,6 +36,10 @@
   padding-bottom: 58px;
 }
 
+.tab-overview-list.has-batch-bar .tab-group-header {
+  padding-left: 21px;
+}
+
 .tab-overview-loading {
   display: flex;
   align-items: center;
@@ -60,7 +64,7 @@
   align-items: center;
   gap: 9px;
   height: 44px;
-  padding: 0 9px 0 14px;
+  padding: 0 17px 0 14px;
   color: #121a29;
   cursor: pointer;
   user-select: none;
@@ -108,16 +112,7 @@
   flex: 1 1 auto;
 }
 
-.tab-group-expand {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  color: #485469;
-  font-size: 11px;
-}
-
-.tab-group-more,
+.tab-group-close-button,
 .tab-close-button {
   width: 26px !important;
   height: 26px !important;
@@ -127,10 +122,20 @@
   border-radius: 7px !important;
 }
 
-.tab-group-more:hover,
+.tab-group-close-button:hover,
 .tab-close-button:hover {
   color: #2167f3 !important;
   background: #eef4ff !important;
+}
+
+.tab-group-close-button {
+  color: #d84a4a !important;
+  background: #fff1f0 !important;
+}
+
+.tab-group-close-button:hover {
+  color: #c93636 !important;
+  background: #ffe5e3 !important;
 }
 
 .tab-group-rows {
