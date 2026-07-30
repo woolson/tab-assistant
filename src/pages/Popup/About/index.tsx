@@ -18,8 +18,8 @@ import PackageJson from '../../../../package.json';
 import './style.less';
 
 const WEB_STORE_URL = 'https://chromewebstore.google.com/detail/obdaljfdjocbdmpofhncldmfppjeemda';
-const AUTHOR_URL = 'https://github.com/woolson';
-const FEEDBACK_URL = 'https://github.com/woolson/TabAssistant/issues';
+const REPOSITORY_URL = 'https://github.com/woolson/tab-assistant';
+const FEEDBACK_URL = `${REPOSITORY_URL}/issues`;
 
 const canUseStorage = () => typeof chrome !== 'undefined' && Boolean(chrome.storage?.sync);
 const isThemeMode = (value: unknown): value is ThemeMode => (
@@ -114,7 +114,7 @@ export const About: React.FC<{
           </Button>
 
           <div className="about-link-list">
-            <button type="button" onClick={() => openLink(AUTHOR_URL)}>
+            <button type="button" onClick={() => openLink(REPOSITORY_URL)}>
               <span>{t('author').replace('：', '').replace(': ', '')}</span>
               <span>Woolson Lee</span>
               <LinkOutlined />

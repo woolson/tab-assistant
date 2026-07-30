@@ -149,7 +149,7 @@ const createDemoRows = (): TabTreeRow[] => [
         key: 'tab-demo-github',
         rowType: 'tab',
         title: 'GitHub · tab-assistant',
-        url: 'https://github.com/woolson/TabAssistant',
+        url: 'https://github.com/woolson/tab-assistant',
         favIconUrl: 'https://github.com/favicon.ico',
         tabId: 1004,
         groupId: 102,
