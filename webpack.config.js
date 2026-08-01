@@ -196,6 +196,12 @@ var options = {
       chunks: ['popup'],
       cache: false,
     }),
+    new HtmlWebpackPlugin({
+      template: path.join(__dirname, 'src', 'pages', 'SidePanel', 'index.html'),
+      filename: 'sidepanel.html',
+      chunks: ['popup'],
+      cache: false,
+    }),
     // new HtmlWebpackPlugin({
     //   template: path.join(__dirname, 'src', 'pages', 'Devtools', 'index.html'),
     //   filename: 'devtools.html',

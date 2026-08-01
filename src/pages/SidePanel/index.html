@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-surface="sidepanel">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TabAssistant</title>
+    <style>
+      html,
+      body,
+      #app-container {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+      }
+
+      body {
+        min-width: 320px;
+        color: #141c2c;
+        background: #fbfcff;
+      }
+
+      .sidepanel-boot {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        height: 100%;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      .sidepanel-boot-header {
+        position: relative;
+        flex: 0 0 104px;
+        height: 104px;
+        background: #eef7ff;
+        border-bottom: 1px solid rgba(35, 105, 235, 0.1);
+        overflow: hidden;
+      }
+
+      .sidepanel-boot-texture {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center center;
+      }
+
+      .sidepanel-boot-brand {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 64px;
+        padding: 0 16px;
+        color: #172033;
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .sidepanel-boot-brand img {
+        width: 30px;
+        height: 30px;
+      }
+
+      .sidepanel-boot-main {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: 1 1 auto;
+        min-height: 0;
+      }
+
+      .sidepanel-boot-status {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #637087;
+        font-size: 13px;
+      }
+
+      .sidepanel-boot-spinner {
+        width: 18px;
+        height: 18px;
+        border: 2px solid rgba(33, 103, 243, 0.2);
+        border-top-color: #2167f3;
+        border-radius: 50%;
+        animation: sidepanel-boot-spin 700ms linear infinite;
+      }
+
+      @keyframes sidepanel-boot-spin {
+        to { transform: rotate(360deg); }
+      }
+
+      @media (max-width: 360px) {
+        .sidepanel-boot-header {
+          flex-basis: 100px;
+          height: 100px;
+        }
+
+        .sidepanel-boot-brand {
+          height: 60px;
+          padding: 0 12px;
+          gap: 8px;
+          font-size: 16px;
+        }
+
+        .sidepanel-boot-brand img {
+          width: 27px;
+          height: 27px;
+        }
+      }
+
+      @media (prefers-color-scheme: dark) {
+        body {
+          color: #edf2ff;
+          background: #101722;
+        }
+
+        .sidepanel-boot-header {
+          background: #101d2f;
+          border-bottom-color: rgba(131, 176, 255, 0.12);
+        }
+
+        .sidepanel-boot-texture {
+          opacity: 0.18;
+          mix-blend-mode: multiply;
+        }
+
+        .sidepanel-boot-brand {
+          color: #edf2ff;
+        }
+
+        .sidepanel-boot-status {
+          color: #98a8bf;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="app-container">
+      <div class="sidepanel-boot">
+        <header class="sidepanel-boot-header">
+          <img class="sidepanel-boot-texture" src="../../assets/img/ui/sidepanel-aurora.jpg" alt="" />
+          <div class="sidepanel-boot-brand">
+            <img src="../../assets/img/icon.svg" alt="" />
+            <span>TabAssistant</span>
+          </div>
+        </header>
+        <main class="sidepanel-boot-main">
+          <div class="sidepanel-boot-status" role="status" aria-live="polite">
+            <span class="sidepanel-boot-spinner" aria-hidden="true"></span>
+            <span data-popup-boot-status>Loading…</span>
+          </div>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

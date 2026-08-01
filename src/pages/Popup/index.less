@@ -19,6 +19,17 @@ body {
   overflow: hidden;
 }
 
+html[data-surface='sidepanel'],
+html[data-surface='sidepanel'] body,
+html[data-surface='sidepanel'] #app-container {
+  width: 100%;
+  height: 100%;
+}
+
+html[data-surface='sidepanel'] body {
+  min-width: 320px;
+}
+
 .popup-app {
   display: flex;
   width: 100%;
@@ -133,12 +144,155 @@ body {
   font-size: 20px;
 }
 
+.popup-sidepanel-trigger {
+  position: absolute;
+  right: 10px;
+  bottom: 18px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 8px;
+  color: #28568f;
+  background: rgba(255, 255, 255, 0.58);
+  border: 1px solid rgba(31, 103, 239, 0.14);
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.popup-sidepanel-trigger:hover {
+  color: #1763e8;
+  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(31, 103, 239, 0.26);
+}
+
+.popup-sidepanel-trigger:focus {
+  outline: none;
+}
+
+.popup-sidepanel-trigger:focus-visible {
+  outline: 2px solid rgba(33, 103, 243, 0.38);
+  outline-offset: 2px;
+}
+
 .popup-content {
   flex: 1 1 auto;
   min-width: 0;
   height: 100%;
   background: #fbfcff;
   overflow: hidden;
+}
+
+.surface-sidepanel {
+  --sidepanel-tab-bar-height: 40px;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.sidepanel-header {
+  position: relative;
+  z-index: 20;
+  flex: 0 0 auto;
+  width: 100%;
+  background-color: #eef7ff;
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  border-bottom: 1px solid rgba(35, 105, 235, 0.1);
+}
+
+.sidepanel-header-main {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  height: 64px;
+  padding: 0 16px;
+  border-bottom: 1px solid rgba(35, 105, 235, 0.07);
+}
+
+.sidepanel-brand {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 10px;
+  color: #172033;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.35px;
+}
+
+.sidepanel-brand-logo {
+  display: block;
+  flex: none;
+  width: 30px;
+  height: 30px;
+}
+
+.surface-sidepanel .popup-navigation {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  height: var(--sidepanel-tab-bar-height);
+  padding: 0 4px;
+}
+
+.surface-sidepanel .popup-navigation-item {
+  justify-content: center;
+  gap: 6px;
+  height: var(--sidepanel-tab-bar-height);
+  padding: 0 4px;
+  border: 0;
+  border-radius: 0;
+  font-size: 13px;
+  text-align: center;
+}
+
+.surface-sidepanel .popup-navigation-item::before {
+  top: auto;
+  right: 12%;
+  bottom: -1px;
+  left: 12%;
+  width: auto;
+  height: 3px;
+  border-radius: 999px 999px 0 0;
+}
+
+.surface-sidepanel .popup-navigation-item:hover {
+  background: rgba(255, 255, 255, 0.38);
+}
+
+.surface-sidepanel .popup-navigation-item.is-active {
+  color: #1763e8;
+  background: rgba(255, 255, 255, 0.26);
+  box-shadow: none;
+}
+
+.surface-sidepanel .popup-navigation-icon {
+  width: 18px;
+  font-size: 18px;
+}
+
+.surface-sidepanel .popup-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+}
+
+.surface-sidepanel .popup-screen {
+  padding: 22px clamp(12px, 4vw, 18px) 18px;
+}
+
+.surface-sidepanel .page-header {
+  min-height: 0;
+}
+
+.surface-sidepanel .page-header h1 {
+  font-size: 22px;
 }
 
 .popup-screen {
@@ -210,6 +364,94 @@ body {
   height: 100%;
 }
 
+.sidepanel-guide-modal .ant-modal-content {
+  padding: 26px;
+  border-radius: 16px;
+}
+
+.sidepanel-guide-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 16px;
+  color: #2167f3;
+  background: #edf4ff;
+  border-radius: 14px;
+  font-size: 24px;
+}
+
+.sidepanel-guide-modal h2 {
+  margin: 0;
+  color: #172033;
+  font-size: 20px;
+  line-height: 1.35;
+}
+
+.sidepanel-guide-modal p {
+  margin: 9px 0 16px;
+  color: #637087;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.sidepanel-guide-location {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 12px;
+  color: #31547d;
+  background: #f4f8ff;
+  border: 1px solid #dce8fb;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.sidepanel-guide-location .anticon {
+  flex: none;
+  color: #2167f3;
+  font-size: 16px;
+}
+
+.sidepanel-guide-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 20px;
+}
+
+.sidepanel-guide-actions .ant-btn {
+  height: 36px;
+  padding-inline: 15px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.sidepanel-guide-root.is-dark .sidepanel-guide-modal .ant-modal-content {
+  background: #162235;
+}
+
+.sidepanel-guide-root.is-dark .sidepanel-guide-modal h2 {
+  color: #f4f7fc;
+}
+
+.sidepanel-guide-root.is-dark .sidepanel-guide-modal p {
+  color: #a7b5c9;
+}
+
+.sidepanel-guide-root.is-dark .sidepanel-guide-icon {
+  color: #8db8ff;
+  background: rgba(33, 103, 243, 0.16);
+}
+
+.sidepanel-guide-root.is-dark .sidepanel-guide-location {
+  color: #c4d2e6;
+  background: #101b2b;
+  border-color: #30415a;
+}
+
 .screen-scroll {
   min-height: 0;
   overflow: auto;
@@ -231,6 +473,24 @@ body {
   border-right-color: rgba(131, 176, 255, 0.12);
 }
 
+.surface-sidepanel.is-dark .sidepanel-header {
+  background-color: #101d2f;
+  background-blend-mode: multiply;
+  border-bottom-color: rgba(131, 176, 255, 0.12);
+}
+
+.surface-sidepanel.is-dark .sidepanel-header-main {
+  border-bottom-color: rgba(131, 176, 255, 0.08);
+}
+
+.surface-sidepanel.is-dark .sidepanel-brand {
+  color: #edf2ff;
+}
+
+.surface-sidepanel.is-dark .popup-navigation-item.is-active {
+  background: rgba(30, 56, 91, 0.42);
+}
+
 .is-dark .popup-brand-name,
 .is-dark .popup-navigation-item.is-active {
   color: #7eb0ff;
@@ -248,6 +508,18 @@ body {
 
 .is-dark .popup-navigation-item:hover {
   background: rgba(30, 56, 91, 0.48);
+}
+
+.is-dark .popup-sidepanel-trigger {
+  color: #b8c9e4;
+  background: rgba(30, 56, 91, 0.52);
+  border-color: rgba(102, 155, 255, 0.2);
+}
+
+.is-dark .popup-sidepanel-trigger:hover {
+  color: #8db8ff;
+  background: rgba(30, 56, 91, 0.76);
+  border-color: rgba(102, 155, 255, 0.34);
 }
 
 .is-dark .popup-content,
@@ -274,4 +546,31 @@ body {
   color: #fff;
   background: #1c2b41;
   border-color: #4c6486;
+}
+
+@media (max-width: 360px) {
+  .sidepanel-header-main {
+    height: 60px;
+    padding: 0 12px;
+  }
+
+  .sidepanel-brand {
+    gap: 8px;
+    font-size: 16px;
+  }
+
+  .sidepanel-brand-logo {
+    width: 27px;
+    height: 27px;
+  }
+
+  .surface-sidepanel .popup-navigation-item {
+    gap: 4px;
+    font-size: 12px;
+  }
+
+  .surface-sidepanel .popup-navigation-icon {
+    width: 16px;
+    font-size: 16px;
+  }
 }

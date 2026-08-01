@@ -480,6 +480,39 @@ class TabAssistant {
 let assistant: TabAssistant | undefined
 let reloadAssistantTask: Promise<void> = Promise.resolve()
 
+chrome.runtime.onInstalled.addListener(details => {
+  if (details.reason === 'install') {
+    void chrome.storage.local.set({ [StorageKeyEnum.SIDE_PANEL_GUIDE_PENDING]: true })
+    return
+  }
+
+  if (details.reason !== 'update') return
+
+  void chrome.storage.local.get(StorageKeyEnum.SIDE_PANEL_GUIDE_PENDING).then(storage => {
+    const guideState = storage[StorageKeyEnum.SIDE_PANEL_GUIDE_PENDING]
+    if (typeof guideState === 'boolean') return
+
+    return chrome.storage.local.set({ [StorageKeyEnum.SIDE_PANEL_GUIDE_PENDING]: true })
+  }).catch(error => Logger.log('记录侧边栏升级引导状态失败', error))
+})
+
+async function configureToolbarEntry(setting?: TabAssistantConfig['setting']) {
+  const openSidePanel = setting?.toolbarEntry === 'sidepanel'
+
+  try {
+    if (openSidePanel) {
+      await chrome.action.setPopup({ popup: '' })
+      await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })
+      return
+    }
+
+    await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false })
+    await chrome.action.setPopup({ popup: 'popup.html' })
+  } catch (error) {
+    Logger.log('配置顶部图标打开方式失败', error)
+  }
+}
+
 function main() {
   const nextReload = reloadAssistantTask.then(async () => {
     const storage = await chrome.storage.sync
@@ -487,6 +520,8 @@ function main() {
         StorageKeyEnum.RULES,
         StorageKeyEnum.SETTING
       ])
+
+    await configureToolbarEntry(storage[StorageKeyEnum.SETTING])
 
     assistant?.dispose()
 
@@ -511,7 +546,8 @@ void main();
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message !== EventNameEnum.RELOAD_RULE) return false
 
-  void main();
-  sendResponse(EventNameEnum.RELOAD_SUCC);
-  return false;
+  void main()
+    .then(() => sendResponse(EventNameEnum.RELOAD_SUCC))
+    .catch(error => Logger.log('重新加载扩展配置失败', error))
+  return true;
 })

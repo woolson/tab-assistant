@@ -1,6 +1,7 @@
 export type GroupColorEnum = chrome.tabGroups.ColorEnum
 export type Language = 'zh-CN' | 'en-US'
 export type ThemeMode = 'system' | 'light' | 'dark'
+export type ToolbarEntryMode = 'popup' | 'sidepanel'
 
 /** 规则信息 */
 export interface RuleItem {
@@ -65,5 +66,9 @@ export interface TabAssistantConfig {
      * 弹窗界面主题
      */
     theme?: ThemeMode
+    /**
+     * 点击浏览器工具栏图标时打开的界面
+     */
+    toolbarEntry?: ToolbarEntryMode
   }
 }

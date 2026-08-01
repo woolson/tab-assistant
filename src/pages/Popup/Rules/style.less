@@ -337,3 +337,117 @@
 .is-dark .rule-match {
   color: #edf2fa;
 }
+
+.surface-sidepanel .rules-screen .page-header {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.surface-sidepanel .rules-screen .page-header-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+}
+
+.surface-sidepanel .rules-screen .page-header-actions .ant-btn {
+  width: 100%;
+}
+
+.surface-sidepanel .rules-list {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.surface-sidepanel .rules-list-header {
+  display: none;
+}
+
+.surface-sidepanel .rules-list-body {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding-right: 1px;
+}
+
+.surface-sidepanel .rule-row {
+  grid-template-areas:
+    'drag name mode actions'
+    'drag match mode actions';
+  grid-template-columns: 28px minmax(0, 1fr) auto auto;
+  align-content: center;
+  column-gap: 8px;
+  row-gap: 1px;
+  height: auto;
+  min-height: 60px;
+  padding: 4px 10px 4px 8px;
+  background: color-mix(in srgb, var(--rule-color) 8%, #fff);
+  border: 1px solid color-mix(in srgb, var(--rule-color) 20%, #e1e7ef);
+  border-radius: 10px;
+}
+
+.surface-sidepanel .rule-row:hover {
+  background: color-mix(in srgb, var(--rule-color) 12%, #fff);
+}
+
+.surface-sidepanel .rule-row.is-dragging {
+  background: color-mix(in srgb, var(--rule-color) 14%, #fff);
+  border-color: color-mix(in srgb, var(--rule-color) 34%, #d5deeb);
+}
+
+.surface-sidepanel .rule-drag-handle {
+  grid-area: drag;
+  align-self: stretch;
+  height: auto !important;
+}
+
+.surface-sidepanel .rule-name {
+  grid-area: name;
+  align-self: center;
+}
+
+.surface-sidepanel .rule-mode {
+  grid-area: mode;
+  align-self: center;
+}
+
+.surface-sidepanel .rule-match {
+  grid-area: match;
+  align-self: center;
+}
+
+.surface-sidepanel .rule-color-dot {
+  grid-area: color;
+  display: none;
+}
+
+.surface-sidepanel .rule-actions {
+  grid-area: actions;
+  align-self: center;
+}
+
+.surface-sidepanel .rules-hint {
+  margin-top: 10px;
+  padding-left: 1px;
+}
+
+.surface-sidepanel.is-dark .rules-list {
+  background: transparent;
+  border: 0;
+}
+
+.surface-sidepanel.is-dark .rule-row {
+  background: color-mix(in srgb, var(--rule-color) 11%, #151f2d);
+  border-color: color-mix(in srgb, var(--rule-color) 24%, #263345);
+}
+
+.surface-sidepanel.is-dark .rule-row:hover {
+  background: color-mix(in srgb, var(--rule-color) 15%, #151f2d);
+}
+
+.surface-sidepanel.is-dark .rule-row.is-dragging {
+  background: color-mix(in srgb, var(--rule-color) 18%, #151f2d);
+  border-color: color-mix(in srgb, var(--rule-color) 38%, #30415a);
+}

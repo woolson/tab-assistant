@@ -14,6 +14,28 @@
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
+  overflow: hidden;
+}
+
+.settings-scroll-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.surface-popup .tab-assistant-setting {
+  padding-right: 0;
+  padding-bottom: 0;
+}
+
+.surface-popup .tab-assistant-setting .page-header {
+  margin-right: 20px;
+}
+
+.surface-popup .settings-scroll-content {
+  padding-right: 20px;
 }
 
 .settings-section {
@@ -65,6 +87,19 @@
   gap: 12px;
 }
 
+.toolbar-entry-setting {
+  grid-column: 1 / -1;
+}
+
+.toolbar-entry-setting.is-guide-target {
+  padding: 7px 8px 5px;
+  margin: -7px 0 3px;
+  background: #f4f8ff;
+  border: 1px solid rgba(33, 103, 243, 0.35);
+  border-radius: 10px;
+  box-shadow: 0 0 0 3px rgba(33, 103, 243, 0.08);
+}
+
 .settings-section .ant-segmented {
   width: 100%;
   min-height: 34px;
@@ -106,9 +141,13 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  flex: 0 0 auto;
   gap: 14px;
-  margin-top: auto;
-  padding: 13px 2px 37px;
+  min-height: 62px;
+  padding: 10px 20px 10px 2px;
+  background: #fbfcff;
+  border-top: 1px solid #e4e9f0;
+  box-shadow: 0 -8px 18px rgba(35, 51, 77, 0.035);
 }
 
 .settings-footer > span {
@@ -124,8 +163,15 @@
 }
 
 .is-dark .tab-assistant-setting .page-header,
-.is-dark .settings-section {
+.is-dark .settings-section,
+.is-dark .settings-footer {
   border-bottom-color: #263345;
+}
+
+.is-dark .settings-footer {
+  background: #101722;
+  border-top-color: #263345;
+  box-shadow: 0 -8px 18px rgba(0, 0, 0, 0.16);
 }
 
 .is-dark .settings-section h2,
@@ -151,6 +197,12 @@
   background: #2167f3;
 }
 
+.is-dark .toolbar-entry-setting.is-guide-target {
+  background: rgba(33, 103, 243, 0.1);
+  border-color: rgba(126, 176, 255, 0.42);
+  box-shadow: 0 0 0 3px rgba(33, 103, 243, 0.12);
+}
+
 .is-dark .settings-section .ant-select-selector {
   color: #dbe5f4 !important;
   background: #151f2d !important;
@@ -169,4 +221,54 @@
 
 .is-dark .settings-section .ant-select-selection-placeholder {
   color: #6f7d92 !important;
+}
+
+.surface-sidepanel .tab-assistant-setting .page-header {
+  margin-right: clamp(12px, 4vw, 18px);
+  margin-left: clamp(12px, 4vw, 18px);
+  margin-bottom: 5px;
+}
+
+.surface-sidepanel .tab-assistant-setting {
+  padding-right: 0;
+  padding-bottom: 0;
+  padding-left: 0;
+}
+
+.surface-sidepanel .settings-form {
+  overflow: hidden;
+}
+
+.surface-sidepanel .settings-scroll-content {
+  padding-right: clamp(12px, 4vw, 18px);
+  padding-left: clamp(12px, 4vw, 18px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.surface-sidepanel .settings-preferences-grid {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+}
+
+.surface-sidepanel .settings-section {
+  padding: 13px 1px 8px;
+}
+
+.surface-sidepanel .settings-footer {
+  position: relative;
+  z-index: 5;
+  align-items: center;
+  justify-content: space-between;
+  flex-direction: row;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 10px clamp(12px, 4vw, 18px);
+}
+
+.surface-sidepanel .settings-footer .ant-btn {
+  flex: none;
+  width: auto;
 }

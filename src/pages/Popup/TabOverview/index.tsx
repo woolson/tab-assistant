@@ -9,11 +9,14 @@ import {
   Tooltip,
 } from 'antd';
 import {
-  CloseCircleFilled,
-  CloseCircleOutlined,
+  CloseOutlined,
   DeleteOutlined,
+  DownCircleOutlined,
+  DownOutlined,
   GlobalOutlined,
   PushpinOutlined,
+  RightCircleOutlined,
+  RightOutlined,
   SearchOutlined,
   SoundOutlined,
 } from '@ant-design/icons';
@@ -110,6 +113,8 @@ const createDemoRows = (): TabTreeRow[] => [
         groupId: 101,
         color: 'blue',
         active: true,
+        pinned: true,
+        audible: true,
       },
       {
         key: 'tab-demo-platform',
@@ -120,6 +125,7 @@ const createDemoRows = (): TabTreeRow[] => [
         tabId: 1002,
         groupId: 101,
         color: 'blue',
+        pinned: true,
       },
       {
         key: 'tab-demo-gpts',
@@ -130,6 +136,7 @@ const createDemoRows = (): TabTreeRow[] => [
         tabId: 1003,
         groupId: 101,
         color: 'blue',
+        pinned: true,
       },
     ],
   },
@@ -151,6 +158,7 @@ const createDemoRows = (): TabTreeRow[] => [
         tabId: 1004,
         groupId: 102,
         color: 'green',
+        pinned: true,
       },
       {
         key: 'tab-demo-antd',
@@ -161,6 +169,7 @@ const createDemoRows = (): TabTreeRow[] => [
         tabId: 1005,
         groupId: 102,
         color: 'green',
+        pinned: true,
       },
       {
         key: 'tab-demo-mdn',
@@ -171,6 +180,18 @@ const createDemoRows = (): TabTreeRow[] => [
         tabId: 1006,
         groupId: 102,
         color: 'green',
+        pinned: true,
+      },
+      {
+        key: 'tab-demo-chrome-developers',
+        rowType: 'tab',
+        title: 'Chrome Developers',
+        url: 'https://developer.chrome.com/',
+        favIconUrl: 'https://www.google.com/s2/favicons?sz=64&domain_url=https://developer.chrome.com',
+        tabId: 1007,
+        groupId: 102,
+        color: 'green',
+        audible: true,
       },
     ],
   },
@@ -198,7 +219,7 @@ const createDemoRows = (): TabTreeRow[] => [
   },
 ];
 
-const TabOverview: React.FC = () => {
+const TabOverview: React.FC<{ surface?: 'popup' | 'sidepanel' }> = ({ surface = 'popup' }) => {
   const { t } = useI18n();
   const [dataSource, setDataSource] = useState<TabTreeRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -501,7 +522,7 @@ const TabOverview: React.FC = () => {
       try {
         await reloadTabs();
       } catch (error) {
-        console.error('Failed to reload popup tabs', error);
+        console.error('Failed to reload tabs', error);
       } finally {
         reloadInProgress = false;
 
@@ -550,6 +571,7 @@ const TabOverview: React.FC = () => {
       chrome.tabs.onCreated,
       chrome.tabs.onRemoved,
       chrome.tabs.onUpdated,
+      chrome.tabs.onActivated,
       chrome.tabs.onMoved,
       chrome.tabs.onAttached,
       chrome.tabs.onDetached,
@@ -559,6 +581,7 @@ const TabOverview: React.FC = () => {
       chrome.tabGroups.onMoved,
     ];
     events.forEach(event => event.addListener(scheduleReload));
+    document.addEventListener('visibilitychange', scheduleReload);
 
     return () => {
       disposed = true;
@@ -566,6 +589,7 @@ const TabOverview: React.FC = () => {
       window.cancelAnimationFrame(secondFrame);
       if (reloadTimer !== undefined) window.clearTimeout(reloadTimer);
       events.forEach(event => event.removeListener(scheduleReload));
+      document.removeEventListener('visibilitychange', scheduleReload);
     };
   }, [reloadTabs]);
 
@@ -630,6 +654,7 @@ const TabOverview: React.FC = () => {
                 className="tab-group-header"
                 role="button"
                 tabIndex={0}
+                aria-expanded={isExpanded}
                 onClick={() => handleToggleGroup(group)}
                 onKeyDown={event => {
                   if (event.key === 'Enter' || event.key === ' ') handleToggleGroup(group);
@@ -651,10 +676,16 @@ const TabOverview: React.FC = () => {
                 <span className="tab-group-count">{group.count || 0}</span>
                 <span className="tab-group-spacer" />
 
+                <span className="tab-group-toggle-icon" aria-hidden="true">
+                  {batchMode
+                    ? isExpanded ? <DownCircleOutlined /> : <RightCircleOutlined />
+                    : isExpanded ? <DownOutlined /> : <RightOutlined />}
+                </span>
+
                 <Button
                   type="text"
                   className="tab-group-close-button"
-                  icon={<CloseCircleFilled />}
+                  icon={<CloseOutlined />}
                   onClick={event => {
                     event.stopPropagation();
                     handleCloseRecord(group);
@@ -693,8 +724,14 @@ const TabOverview: React.FC = () => {
                           : <GlobalOutlined />}
                       </span>
 
-                      <span className="tab-title" title={tab.title}>{tab.title}</span>
-                      <span className="tab-domain" title={tab.url}>{getDomain(tab.url)}</span>
+                      <span className="tab-copy">
+                        <span className="tab-title" title={tab.title}>{tab.title}</span>
+                        <Tooltip title={tab.url} placement="topLeft">
+                          <span className="tab-domain">
+                            {surface === 'sidepanel' ? tab.url : getDomain(tab.url)}
+                          </span>
+                        </Tooltip>
+                      </span>
                       <span className="tab-row-spacer" />
 
                       {tab.active && <span className="tab-current-badge">{t('current')}</span>}
@@ -704,7 +741,7 @@ const TabOverview: React.FC = () => {
                       <Button
                         type="text"
                         className="tab-close-button"
-                        icon={<CloseCircleOutlined />}
+                        icon={<CloseOutlined />}
                         onClick={event => {
                           event.stopPropagation();
                           handleCloseRecord(tab);
