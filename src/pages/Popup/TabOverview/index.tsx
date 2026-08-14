@@ -342,6 +342,20 @@ const TabOverview: React.FC<{ surface?: 'popup' | 'sidepanel' }> = ({ surface = 
       .filter((row): row is TabTreeRow => Boolean(row));
   }, [dataSource, query]);
 
+  const allTabIds = useMemo(
+    () => dataSource.flatMap(row => row.tabIds || []),
+    [dataSource],
+  );
+
+  const allTabsSelected = allTabIds.length > 0 && allTabIds.every(id => selectedTabIds.includes(id));
+
+  const toggleAllTabsSelection = useCallback(() => {
+    setSelectedTabIds(previous => {
+      const previousAllSelected = allTabIds.length > 0 && allTabIds.every(id => previous.includes(id));
+      return previousAllSelected ? [] : allTabIds;
+    });
+  }, [allTabIds]);
+
   const totalTabs = useMemo(
     () => dataSource.reduce((total, row) => total + (row.count || 0), 0),
     [dataSource],
@@ -760,9 +774,22 @@ const TabOverview: React.FC<{ surface?: 'popup' | 'sidepanel' }> = ({ surface = 
       {batchMode && (
         <div className="tab-batch-bar">
           <div className="tab-batch-copy">
-            <Checkbox checked={selectedTabIds.length > 0} indeterminate={!selectedTabIds.length} />
-            <strong>{t('selectedTabCount', { count: selectedTabIds.length })}</strong>
-            <Button type="link" onClick={() => setSelectedTabIds([])}>{t('cancelSelection')}</Button>
+            <Checkbox
+              checked={allTabsSelected}
+              indeterminate={selectedTabIds.length > 0 && !allTabsSelected}
+              onChange={toggleAllTabsSelection}
+              aria-label={t('selectAll')}
+            />
+            <strong
+              role="button"
+              tabIndex={0}
+              onClick={toggleAllTabsSelection}
+              onKeyDown={event => {
+                if (event.key === 'Enter' || event.key === ' ') toggleAllTabsSelection();
+              }}
+            >
+              {t('selectedTabCount', { count: selectedTabIds.length })}
+            </strong>
           </div>
           <Button
             danger
