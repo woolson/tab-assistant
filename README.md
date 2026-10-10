@@ -35,7 +35,7 @@ Tab organization happens locally in your browser. TabAssistant does not upload y
 - **Batch management for the current window**: Search tabs, expand or collapse all groups, close multiple tabs, and restore accidentally closed pages.
 - **Independent multi-window organization**: Manage every window separately and keep tabs in their original browser window.
 - **Automatic local-file grouping**: Place `file://` pages into a dedicated Local Files group.
-- **Auto-close inactive tabs**: Optionally close tabs that have not been visited for a configurable amount of time (30 minutes by default; off by default). The countdown restarts every time you revisit a tab, and the tab you are viewing, pinned tabs, tabs playing audio, and the last tab in a window are never closed.
+- **Auto-close inactive tabs**: Optionally close web page tabs (http/https/file only) that have not been visited for a configurable amount of time (30 minutes by default; off by default). The countdown restarts every time you revisit a tab, and the tab you are viewing, pinned tabs, tabs playing audio, the last tab in a window, and browser built-in pages (such as the New Tab page) are never closed.
 - **Personalized appearance**: Choose a light theme, dark theme, or follow your system setting.
 - **Chinese and English UI**: Switch between Simplified Chinese and English.
 - **Configuration migration**: Import and export grouping rules and extension preferences.
