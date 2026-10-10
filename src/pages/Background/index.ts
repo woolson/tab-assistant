@@ -150,17 +150,45 @@ class TabAssistant {
             })
           }
           currentWindowGroups[groupInfo.title as string].id = groupId
-          chrome.tabGroups.update(groupId, { title: groupInfo.title, color: groupInfo.color })
-          chrome.tabGroups.move(groupId, {
-            index: this.getGroupIndex({
-              sortIndex: groupInfo.index,
-              groupTitle: groupInfo.title || '',
-              windowId: window.id
-            })
-          })
+          await this.updateGroupSafely(groupId, { title: groupInfo.title, color: groupInfo.color })
+          await this.moveGroupSafely(groupId, this.getGroupIndex({
+            sortIndex: groupInfo.index,
+            groupTitle: groupInfo.title || '',
+            windowId: window.id
+          }), window.id)
         }
       }
     }))
+  }
+
+  /**
+   * 更新分组信息。分组可能在操作间隙被移除（如标签页被自动关闭导致分组消失），
+   * 失败时仅记录日志，避免产生未捕获的异常。
+   */
+  async updateGroupSafely(groupId: number, props: chrome.tabGroups.UpdateProperties) {
+    try {
+      await chrome.tabGroups.update(groupId, props)
+    } catch (error) {
+      Logger.log('更新分组失败', groupId, error)
+    }
+  }
+
+  /**
+   * 移动分组到目标位置。
+   * 固定标签占据窗口起始位置且不能与分组交叉，目标索引需要加上固定标签数量的偏移；
+   * 分组也可能在操作间隙被移除，失败时仅记录日志。
+   */
+  async moveGroupSafely(groupId: number, index: number, windowId: number) {
+    try {
+      let targetIndex = index
+      if (index >= 0) {
+        const pinnedTabs = await chrome.tabs.query({ windowId, pinned: true })
+        targetIndex = index + pinnedTabs.length
+      }
+      await chrome.tabGroups.move(groupId, { index: targetIndex })
+    } catch (error) {
+      Logger.log('移动分组失败', groupId, error)
+    }
   }
 
   /**
@@ -253,13 +281,14 @@ class TabAssistant {
   }
 
   /** 将标签添加到group */
-  addTabToGroup(tabInfo: number, syncToBrowser: boolean): void
-  addTabToGroup(tabInfo: chrome.tabs.Tab, syncToBrowser: boolean): void
+  addTabToGroup(tabInfo: number, syncToBrowser: boolean): Promise<Groups[number] | undefined>
+  addTabToGroup(tabInfo: chrome.tabs.Tab, syncToBrowser: boolean): Promise<Groups[number] | undefined>
   async addTabToGroup(tabInfoOrTabId: number | chrome.tabs.Tab, syncToBrowser = false) {
     let tabInfo: chrome.tabs.Tab = typeof tabInfoOrTabId === 'number'
       ? await chrome.tabs.get(tabInfoOrTabId)
       : tabInfoOrTabId
-    if (!tabInfo.url || !tabInfo.id) return;
+    // 固定标签不参与分组：加入分组会使其被取消固定
+    if (!tabInfo.url || !tabInfo.id || tabInfo.pinned) return;
 
     this.removeTabFromGroups(tabInfo.id, tabInfo.windowId)
 
@@ -285,18 +314,16 @@ class TabAssistant {
         if (groupId !== previousGroupId) {
           Logger.log('添加到分组，分组不存在则更新分组相关信息', groupId)
           groupInfo.id = groupId
-          await chrome.tabGroups.update(groupId, {
+          await this.updateGroupSafely(groupId, {
             title: groupInfo.title,
             collapsed: groupInfo.collapsed,
             color: groupInfo.color
           })
-          await chrome.tabGroups.move(groupId, {
-            index: this.getGroupIndex({
-              groupTitle,
-              sortIndex: groupInfo.index,
-              windowId: tabInfo.windowId
-            })
-          })
+          await this.moveGroupSafely(groupId, this.getGroupIndex({
+            groupTitle,
+            sortIndex: groupInfo.index,
+            windowId: tabInfo.windowId
+          }), tabInfo.windowId)
         }
       }
     } else {
@@ -319,15 +346,13 @@ class TabAssistant {
 
         const { title, color, index, collapsed } = groupInfo
         Logger.log('匹配不到分组', groupInfo)
-        await chrome.tabGroups.update(groupId, { title, collapsed, color })
+        await this.updateGroupSafely(groupId, { title, collapsed, color })
 
-        chrome.tabGroups.move(groupId, {
-          index: this.getGroupIndex({
-            groupTitle,
-            sortIndex: index,
-            windowId: tabInfo.windowId
-          })
-        })
+        await this.moveGroupSafely(groupId, this.getGroupIndex({
+          groupTitle,
+          sortIndex: index,
+          windowId: tabInfo.windowId
+        }), tabInfo.windowId)
       }
     }
     return groupInfo
@@ -396,18 +421,24 @@ class TabAssistant {
   async onTabCreated(tab: chrome.tabs.Tab) {
     if (tab.id) {
       Logger.log('创建标签后添加到分组', tab.url)
-      this.addTabToGroup(tab, true)
+      await this.addTabToGroup(tab, true)
+        .catch(error => Logger.log('创建标签加入分组失败', tab.id, error))
     }
   }
 
   async onTabAdded(tabId: number, changeInfo: chrome.tabs.TabChangeInfo) {
     if (changeInfo.url || changeInfo.status === 'complete') {
-      const tabInfo = await chrome.tabs.get(tabId)
-      Logger.log('对标签添加到分组', changeInfo.url || tabInfo.url)
-      this.addTabToGroup({
-        ...tabInfo,
-        url: changeInfo.url || tabInfo.url,
-      }, true)
+      try {
+        // 标签可能在事件派发后已被关闭（如被自动关闭），获取失败时直接忽略
+        const tabInfo = await chrome.tabs.get(tabId)
+        Logger.log('对标签添加到分组', changeInfo.url || tabInfo.url)
+        await this.addTabToGroup({
+          ...tabInfo,
+          url: changeInfo.url || tabInfo.url,
+        }, true)
+      } catch (error) {
+        Logger.log('更新标签加入分组失败', tabId, error)
+      }
     }
   }
 
