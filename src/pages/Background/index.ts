@@ -11,6 +11,7 @@
  */
 
 import { EventNameEnum, StorageKeyEnum } from "../../common/const"
+import { reloadAutoClose, setupAutoClose } from "./autoClose"
 import { Logger } from "./helpers"
 import { MatchTypeEnum, NameMap, RuleItem, Groups, TabAssistantConfig } from "./types"
 import { cloneDeep, remove } from 'lodash-es'
@@ -522,6 +523,7 @@ function main() {
       ])
 
     await configureToolbarEntry(storage[StorageKeyEnum.SETTING])
+    await reloadAutoClose().catch(error => Logger.log('初始化自动关闭闲置标签页失败', error))
 
     assistant?.dispose()
 
@@ -540,6 +542,8 @@ function main() {
 
   return nextReload
 };
+
+setupAutoClose();
 
 void main();
 

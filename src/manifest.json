@@ -5,6 +5,7 @@
   "default_locale": "zh_CN",
   "minimum_chrome_version": "116",
   "permissions": [
+    "alarms",
     "sidePanel",
     "tabGroups",
     "storage",

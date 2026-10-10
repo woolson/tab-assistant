@@ -35,6 +35,7 @@ Tab organization happens locally in your browser. TabAssistant does not upload y
 - **Batch management for the current window**: Search tabs, expand or collapse all groups, close multiple tabs, and restore accidentally closed pages.
 - **Independent multi-window organization**: Manage every window separately and keep tabs in their original browser window.
 - **Automatic local-file grouping**: Place `file://` pages into a dedicated Local Files group.
+- **Auto-close inactive tabs**: Optionally close tabs that have not been visited for a configurable amount of time (30 minutes by default; off by default). The countdown restarts every time you revisit a tab, and the tab you are viewing, pinned tabs, tabs playing audio, and the last tab in a window are never closed.
 - **Personalized appearance**: Choose a light theme, dark theme, or follow your system setting.
 - **Chinese and English UI**: Switch between Simplified Chinese and English.
 - **Configuration migration**: Import and export grouping rules and extension preferences.
@@ -99,6 +100,7 @@ TabAssistant requests only the permissions needed to organize browser tabs:
 - `tabs`: Read and manage browser tabs.
 - `tabGroups`: Create and manage tab groups.
 - `storage`: Save rules, language, theme, and other preferences in browser extension storage.
+- `alarms`: Periodically check for inactive tabs so the optional auto-close feature keeps working after the extension's background service worker is suspended.
 
 Tab organization runs locally. TabAssistant does not upload your browsing history or tab contents to its own servers. Rules and preferences are stored in browser extension storage and may sync between your devices through your browser's own synchronization mechanism.
 

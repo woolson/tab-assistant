@@ -70,5 +70,13 @@ export interface TabAssistantConfig {
      * 点击浏览器工具栏图标时打开的界面
      */
     toolbarEntry?: ToolbarEntryMode
+    /**
+     * 是否自动关闭长时间未访问的标签页
+     */
+    autoCloseEnabled?: boolean
+    /**
+     * 标签页闲置多少分钟后自动关闭
+     */
+    autoCloseMinutes?: number
   }
 }
