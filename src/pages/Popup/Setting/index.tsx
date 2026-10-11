@@ -1,8 +1,8 @@
 import React, { memo, useCallback, useEffect, useState } from 'react';
-import { Button, Form, message, Segmented, Select } from 'antd';
+import { Button, Form, InputNumber, message, Segmented, Select, Switch } from 'antd';
 import { useForm } from 'antd/es/form/Form';
 import PageHeader from '../PageHeader';
-import { EventNameEnum, StorageKeyEnum } from '@/common/const';
+import { DEFAULT_AUTO_CLOSE_MINUTES, EventNameEnum, StorageKeyEnum } from '@/common/const';
 import { TabAssistantConfig, ThemeMode, ToolbarEntryMode } from '@/pages/Background/types';
 import { languageOptions, TranslationKey, useI18n } from '@/common/i18n';
 import './style.less';
@@ -28,6 +28,7 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
   const [form] = useForm<TabAssistantConfig['setting']>();
   const [defaultOptions, setDefaultOptions] = useState<Array<{ value: string; label: string }>>([]);
   const { language, setLanguage, t } = useI18n();
+  const autoCloseEnabled = Form.useWatch('autoCloseEnabled', form);
 
   useEffect(() => {
     if (!highlightToolbarEntry) return;
@@ -47,6 +48,8 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
           toolbarEntry: 'popup' as const,
           remove3w: false,
           removeKeywordList: ['www'],
+          autoCloseEnabled: false,
+          autoCloseMinutes: DEFAULT_AUTO_CLOSE_MINUTES,
         };
         form.setFieldsValue(previewSettings);
         setDefaultOptions([{ value: 'www', label: 'www' }]);
@@ -61,6 +64,8 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
         language,
         theme: themeMode,
         toolbarEntry: 'popup',
+        autoCloseEnabled: false,
+        autoCloseMinutes: DEFAULT_AUTO_CLOSE_MINUTES,
         ...settings,
         removeKeywordList,
       });
@@ -70,7 +75,11 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
   }, [form, language, themeMode]);
 
   const onFinish = useCallback(async (formValue: TabAssistantConfig['setting']) => {
-    if (canUseStorage()) await chrome.storage.sync.set({ [StorageKeyEnum.SETTING]: formValue });
+    const nextSetting = {
+      ...formValue,
+      autoCloseMinutes: formValue.autoCloseMinutes || DEFAULT_AUTO_CLOSE_MINUTES,
+    };
+    if (canUseStorage()) await chrome.storage.sync.set({ [StorageKeyEnum.SETTING]: nextSetting });
     if (formValue.language) setLanguage(formValue.language);
     onThemeModeChange(formValue.theme || 'system');
     message.success(t('settingsSaved'));
@@ -149,6 +158,34 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
                 mode="tags"
                 placeholder={t('ignoreWordsPlaceholder')}
                 options={defaultOptions}
+              />
+            </Form.Item>
+          </section>
+
+          <section className="settings-section">
+            <h2><span />{t('autoCloseSection')}</h2>
+
+            <Form.Item
+              className="auto-close-enable-setting"
+              label={t('autoCloseEnableSetting')}
+              name="autoCloseEnabled"
+              valuePropName="checked"
+              extra={t('autoCloseEnableSettingExtra')}
+            >
+              <Switch />
+            </Form.Item>
+
+            <Form.Item
+              label={t('autoCloseTimeoutSetting')}
+              name="autoCloseMinutes"
+              extra={t('autoCloseTimeoutSettingExtra')}
+            >
+              <InputNumber
+                min={1}
+                max={7 * 24 * 60}
+                precision={0}
+                disabled={!autoCloseEnabled}
+                addonAfter={t('minutesUnit')}
               />
             </Form.Item>
           </section>
