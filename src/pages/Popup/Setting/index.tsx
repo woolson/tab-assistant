@@ -4,6 +4,7 @@ import { useForm } from 'antd/es/form/Form';
 import PageHeader from '../PageHeader';
 import { DEFAULT_AUTO_CLOSE_MINUTES, EventNameEnum, StorageKeyEnum } from '@/common/const';
 import { TabAssistantConfig, ThemeMode, ToolbarEntryMode } from '@/pages/Background/types';
+import { beginOnDeviceModelDownload, ModelAvailability, queryLanguageModelAvailability } from '@/pages/Background/aiAutoGroupDecision';
 import { languageOptions, TranslationKey, useI18n } from '@/common/i18n';
 import './style.less';
 
@@ -18,6 +19,20 @@ const toolbarEntryOptions: Array<{ value: ToolbarEntryMode; labelKey: Translatio
   { value: 'sidepanel', labelKey: 'toolbarEntrySidePanel' },
 ];
 
+function isAiAutoGroupSwitchDisabled(availability: ModelAvailability | 'checking', enabled: boolean) {
+  const modelMissing = availability === 'unsupported' || availability === 'unavailable';
+  return modelMissing && !enabled;
+}
+
+function aiAutoGroupExtraKey(availability: ModelAvailability | 'checking', enabled: boolean): TranslationKey {
+  if (availability === 'unsupported' || availability === 'unavailable') {
+    return enabled ? 'aiAutoGroupUnavailableWhileOnExtra' : 'aiAutoGroupUnavailableExtra';
+  }
+  if (availability === 'downloading') return 'aiAutoGroupDownloadingExtra';
+  if (availability === 'downloadable') return 'aiAutoGroupDownloadableExtra';
+  return 'aiAutoGroupEnableSettingExtra';
+}
+
 interface SettingProps {
   themeMode: ThemeMode;
   onThemeModeChange: (themeMode: ThemeMode) => void;
@@ -29,6 +44,8 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
   const [defaultOptions, setDefaultOptions] = useState<Array<{ value: string; label: string }>>([]);
   const { language, setLanguage, t } = useI18n();
   const autoCloseEnabled = Form.useWatch('autoCloseEnabled', form);
+  const aiAutoGroupEnabled = Form.useWatch('aiAutoGroupEnabled', form);
+  const [modelAvailability, setModelAvailability] = useState<ModelAvailability | 'checking'>('checking');
 
   useEffect(() => {
     if (!highlightToolbarEntry) return;
@@ -38,6 +55,20 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
     });
     return () => window.cancelAnimationFrame(frameId);
   }, [highlightToolbarEntry]);
+
+  useEffect(() => {
+    let cancelled = false;
+    queryLanguageModelAvailability()
+      .then(value => {
+        if (!cancelled) setModelAvailability(value);
+      })
+      .catch(() => {
+        if (!cancelled) setModelAvailability('unsupported');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -50,6 +81,7 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
           removeKeywordList: ['www'],
           autoCloseEnabled: false,
           autoCloseMinutes: DEFAULT_AUTO_CLOSE_MINUTES,
+          aiAutoGroupEnabled: false,
         };
         form.setFieldsValue(previewSettings);
         setDefaultOptions([{ value: 'www', label: 'www' }]);
@@ -68,6 +100,7 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
         autoCloseMinutes: DEFAULT_AUTO_CLOSE_MINUTES,
         ...settings,
         removeKeywordList,
+        aiAutoGroupEnabled: Boolean(settings.aiAutoGroupEnabled),
       });
     };
 
@@ -158,6 +191,33 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
                 mode="tags"
                 placeholder={t('ignoreWordsPlaceholder')}
                 options={defaultOptions}
+              />
+            </Form.Item>
+          </section>
+
+          <section className="settings-section">
+            <h2><span />{t('aiAutoGroupSection')}</h2>
+
+            <Form.Item
+              className="ai-auto-group-setting"
+              label={t('aiAutoGroupEnableSetting')}
+              name="aiAutoGroupEnabled"
+              valuePropName="checked"
+              extra={t(aiAutoGroupExtraKey(modelAvailability, Boolean(aiAutoGroupEnabled)))}
+            >
+              <Switch
+                disabled={isAiAutoGroupSwitchDisabled(modelAvailability, Boolean(aiAutoGroupEnabled))}
+                onChange={checked => {
+                  if (!checked || modelAvailability === 'available') return;
+                  setModelAvailability('downloading');
+                  message.info(t('aiAutoGroupDownloadStarted'));
+                  void beginOnDeviceModelDownload().then(() => {
+                    setModelAvailability('available');
+                    message.success(t('aiAutoGroupDownloadReady'));
+                  }).catch(() => {
+                    void queryLanguageModelAvailability().then(setModelAvailability);
+                  });
+                }}
               />
             </Form.Item>
           </section>

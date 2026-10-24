@@ -103,7 +103,7 @@ export const About: React.FC<{
         <aside className="about-release-panel">
           <span className="about-release-label">{t('currentVersion')}</span>
           <strong>v{PackageJson.version}</strong>
-          <time dateTime="2026-10-11">2026-10-11</time>
+          <time dateTime="2026-10-24">2026-10-24</time>
 
           <Button
             type="link"
@@ -147,10 +147,25 @@ export const About: React.FC<{
             <span className="release-node" />
             <div className="release-heading">
               <div>
+                <h3>v1.7.0</h3>
+                <time>2026-10-24</time>
+              </div>
+              <span className="release-badge release-badge-current">{t('currentVersionBadge')}</span>
+            </div>
+            <h4>{t('newFeature').replace('：', '').replace(':', '')}</h4>
+            <ul>
+              <li>{t('changelog1701')}</li>
+            </ul>
+          </section>
+
+          <section className="release-entry">
+            <span className="release-node" />
+            <div className="release-heading">
+              <div>
                 <h3>v1.6.0</h3>
                 <time>2026-10-11</time>
               </div>
-              <span className="release-badge release-badge-current">{t('currentVersionBadge')}</span>
+              <span className="release-badge">{t('newFeature').replace('：', '').replace(':', '')}</span>
             </div>
             <h4>{t('newFeature').replace('：', '').replace(':', '')}</h4>
             <ul>

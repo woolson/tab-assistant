@@ -11,6 +11,8 @@
  */
 
 import { EventNameEnum, StorageKeyEnum } from "../../common/const"
+import { AI_MANUAL_EDIT_COOLDOWN_MS, continueNewTabForAiGrouping, suspendOnDeviceModel, watchNewTabForAiGrouping } from "./aiAutoGroup"
+import { isPlaceholderTabUrl, normalizeGroupTitle } from "./aiAutoGroupDecision"
 import { reloadAutoClose, setupAutoClose } from "./autoClose"
 import { Logger } from "./helpers"
 import { MatchTypeEnum, NameMap, RuleItem, Groups, TabAssistantConfig } from "./types"
@@ -37,14 +39,37 @@ class TabAssistant {
   /** 设置 */
   setting: TabAssistantConfig['setting'] = {
     remove3w: false,
-    removeKeywordList: []
+    removeKeywordList: [],
+    aiAutoGroupEnabled: false,
   }
 
   private readonly tabCreatedListener = this.onTabCreated.bind(this)
   private readonly tabRemovedListener = this.onTabRemoved.bind(this)
   private readonly tabUpdatedListener = this.onTabAdded.bind(this)
+  private readonly tabMovedListener = (tabId: number) => {
+    this.noteManualTabEdit(tabId)
+  }
+  private readonly tabGroupChangedListener = (tabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
+    if (changeInfo.groupId === undefined || changeInfo.groupId === chrome.tabGroups.TAB_GROUP_ID_NONE) return
+    this.noteManualTabEdit(tabId)
+  }
   private readonly groupRemovedListener = this.onGroupRemoved.bind(this)
   private readonly groupUpdatedListener = this.onGroupUpdated.bind(this)
+  private readonly groupMovedListener = () => {
+    this.noteManualGroupReorder()
+  }
+
+  private disposed = false
+  /** 扩展自己正在改分组时，忽略随之而来的移动事件，避免把它们当成用户操作。 */
+  private browserMutationDepth = 0
+  private browserMutationTimers: Array<ReturnType<typeof setTimeout>> = []
+  /** 开启 AI 后新建的标签不再走原来的“地址变化就按域名分组”。 */
+  private readonly aiManagedTabIds = new Set<number>()
+  /** 已经开始（或完成）第一次放置决策的新标签，避免重复询问模型。 */
+  private readonly aiDecisionStarted = new Set<number>()
+  private readonly manualHoldUntil = new Map<number, number>()
+  private readonly groupTitles = new Map<number, string | undefined>()
+  private suppressGroupReorderUntil = 0
 
   constructor(config: TabAssistantConfig) {
     Logger.log('初始化_扩展配置', config)
@@ -59,17 +84,28 @@ class TabAssistant {
     chrome.tabs.onCreated.addListener(this.tabCreatedListener)
     chrome.tabs.onRemoved.addListener(this.tabRemovedListener)
     chrome.tabs.onUpdated.addListener(this.tabUpdatedListener)
+    chrome.tabs.onMoved.addListener(this.tabMovedListener)
+    chrome.tabs.onUpdated.addListener(this.tabGroupChangedListener)
     chrome.tabGroups.onRemoved.addListener(this.groupRemovedListener)
     chrome.tabGroups.onUpdated.addListener(this.groupUpdatedListener)
+    chrome.tabGroups.onMoved.addListener(this.groupMovedListener)
+
+    if (!this.setting.aiAutoGroupEnabled) suspendOnDeviceModel()
   }
 
   /** 配置重载时移除旧实例监听，避免同一个事件被重复处理。 */
   dispose() {
+    this.disposed = true
+    this.browserMutationTimers.forEach(timer => clearTimeout(timer))
+    this.browserMutationTimers = []
     chrome.tabs.onCreated.removeListener(this.tabCreatedListener)
     chrome.tabs.onRemoved.removeListener(this.tabRemovedListener)
     chrome.tabs.onUpdated.removeListener(this.tabUpdatedListener)
+    chrome.tabs.onMoved.removeListener(this.tabMovedListener)
+    chrome.tabs.onUpdated.removeListener(this.tabGroupChangedListener)
     chrome.tabGroups.onRemoved.removeListener(this.groupRemovedListener)
     chrome.tabGroups.onUpdated.removeListener(this.groupUpdatedListener)
+    chrome.tabGroups.onMoved.removeListener(this.groupMovedListener)
   }
 
   /** 主程序 */
@@ -122,8 +158,17 @@ class TabAssistant {
         .map(tab => [tab.id, tab]))
       Logger.log('tabs', tabs)
 
-      /** query 已返回完整标签信息，直接复用，避免冷启动时逐个再次读取。 */
-      tabs.forEach(tab => this.addTabToGroup(tab, false))
+      /**
+       * AI 开启时，启动整理不再把已经在分组里、且没有命中规则的标签拉回域名分组，
+       * 否则 Service Worker 每次唤醒都会拆掉模型刚放好的分组。
+       */
+      tabs.forEach(tab => {
+        if (this.shouldKeepCurrentGroup(tab)) {
+          this.rememberTabInItsCurrentGroup(tab)
+          return
+        }
+        this.addTabToGroup(tab, false)
+      })
 
       /** 当前窗口排序后的分组 */
       const currentWindowSortedGroups = this.getSortedGroups(window.id)
@@ -166,11 +211,13 @@ class TabAssistant {
    * 失败时仅记录日志，避免产生未捕获的异常。
    */
   async updateGroupSafely(groupId: number, props: chrome.tabGroups.UpdateProperties) {
-    try {
-      await chrome.tabGroups.update(groupId, props)
-    } catch (error) {
-      Logger.log('更新分组失败', groupId, error)
-    }
+    await this.trackBrowserMutation(async () => {
+      try {
+        await chrome.tabGroups.update(groupId, props)
+      } catch (error) {
+        Logger.log('更新分组失败', groupId, error)
+      }
+    })
   }
 
   /**
@@ -179,16 +226,18 @@ class TabAssistant {
    * 分组也可能在操作间隙被移除，失败时仅记录日志。
    */
   async moveGroupSafely(groupId: number, index: number, windowId: number) {
-    try {
-      let targetIndex = index
-      if (index >= 0) {
-        const pinnedTabs = await chrome.tabs.query({ windowId, pinned: true })
-        targetIndex = index + pinnedTabs.length
+    await this.trackBrowserMutation(async () => {
+      try {
+        let targetIndex = index
+        if (index >= 0) {
+          const pinnedTabs = await chrome.tabs.query({ windowId, pinned: true })
+          targetIndex = index + pinnedTabs.length
+        }
+        await chrome.tabGroups.move(groupId, { index: targetIndex })
+      } catch (error) {
+        Logger.log('移动分组失败', groupId, error)
       }
-      await chrome.tabGroups.move(groupId, { index: targetIndex })
-    } catch (error) {
-      Logger.log('移动分组失败', groupId, error)
-    }
+    })
   }
 
   /**
@@ -247,6 +296,14 @@ class TabAssistant {
    * 并将来自其他窗口的标签移动到当前窗口。
    */
   async groupTabsInWindow(params: {
+    tabIds: number | number[];
+    windowId: number;
+    groupId?: number;
+  }) {
+    return this.trackBrowserMutation(() => this.groupTabsInWindowNow(params))
+  }
+
+  private async groupTabsInWindowNow(params: {
     tabIds: number | number[];
     windowId: number;
     groupId?: number;
@@ -372,21 +429,8 @@ class TabAssistant {
       }
     }
 
-    const rules = this.rules.slice(0).sort((a, b) => b.priority - a.priority)
-
-    Logger.log('sorted rules', rules);
-
-    /** 匹配规则 */
-    for (const rule of rules) {
-      // 使用域名全匹配
-      if (rule.matchType === MatchTypeEnum.Domain && host === rule.matchContent) {
-        return rule
-        // 使用正则进行页面匹配
-      } else if (rule.matchType === MatchTypeEnum.RegExp) {
-        const reg = new RegExp(rule.matchContent)
-        if (reg.test(url)) return rule
-      }
-    }
+    const rule = this.findMatchedRule(url, host)
+    if (rule) return rule
 
     let title = this.domainMap[host] || host
     if (this.setting.removeKeywordList?.length) {
@@ -401,6 +445,150 @@ class TabAssistant {
       groupColor: undefined,
       sortIndex: -1
     }
+  }
+
+  /** 规则和本地文件分组仍然优先于模型判断。 */
+  shouldUseExistingGrouping(url: string) {
+    try {
+      const parsed = new URL(url)
+      if (parsed.protocol === 'file:') return true
+      return Boolean(this.findMatchedRule(url, parsed.host))
+    } catch (error) {
+      Logger.log('判断已有分组规则失败', url, error)
+      return false
+    }
+  }
+
+  findMatchedRule(url: string, host = new URL(url).host) {
+    const rules = this.rules.slice(0).sort((a, b) => b.priority - a.priority)
+    Logger.log('sorted rules', rules)
+
+    for (const rule of rules) {
+      if (rule.matchType === MatchTypeEnum.Domain && host === rule.matchContent) {
+        return rule
+      } else if (rule.matchType === MatchTypeEnum.RegExp) {
+        const reg = new RegExp(rule.matchContent)
+        if (reg.test(url)) return rule
+      }
+    }
+    return undefined
+  }
+
+  isDisposed() {
+    return this.disposed
+  }
+
+  releaseInitialDecision(tabId: number) {
+    this.aiDecisionStarted.delete(tabId)
+  }
+
+  hasManualTabHold(tabId: number) {
+    const until = this.manualHoldUntil.get(tabId)
+    if (!until) return false
+    if (until < Date.now()) {
+      this.manualHoldUntil.delete(tabId)
+      return false
+    }
+    return true
+  }
+
+  async groupTabWithExistingRules(tab: chrome.tabs.Tab) {
+    if (!tab.id) return
+    const latest = await this.readMovableTab(tab.id)
+    if (!latest) return
+    await this.addTabToGroup(latest, true)
+  }
+
+  async joinTabToGroup(tab: chrome.tabs.Tab, groupId: number) {
+    if (!tab.id || !Number.isInteger(groupId) || groupId === chrome.tabGroups.TAB_GROUP_ID_NONE) return
+    const latest = await this.readMovableTab(tab.id)
+    if (!latest?.id) return
+
+    let browserGroup: chrome.tabGroups.TabGroup
+    try {
+      browserGroup = await chrome.tabGroups.get(groupId)
+    } catch (error) {
+      Logger.log('要加入的分组不存在', groupId, error)
+      return
+    }
+    if (browserGroup.windowId !== latest.windowId) return
+
+    const refreshed = await this.readMovableTab(latest.id)
+    if (!refreshed?.id) return
+
+    try {
+      await this.trackBrowserMutation(async () => {
+        this.removeTabFromGroups(refreshed.id as number, refreshed.windowId)
+        const nextGroupId = await chrome.tabs.group({
+          groupId,
+          tabIds: refreshed.id as number,
+        })
+        this.rememberJoinedTab(refreshed.windowId, nextGroupId, browserGroup, refreshed.id as number)
+      })
+    } catch (error) {
+      Logger.log('加入已有分组失败', groupId, error)
+    }
+  }
+
+  async createGroupForTab(tab: chrome.tabs.Tab, rawTitle: string) {
+    if (!tab.id) return
+    const title = normalizeGroupTitle(rawTitle)
+    if (!title) return
+    const latest = await this.readMovableTab(tab.id)
+    if (!latest?.id) return
+
+    const groups = await chrome.tabGroups.query({ windowId: latest.windowId })
+    const sameTitle = groups.find(group => (group.title || '').trim().toLowerCase() === title.toLowerCase())
+    if (sameTitle) {
+      await this.joinTabToGroup(latest, sameTitle.id)
+      return
+    }
+
+    await this.trackBrowserMutation(async () => {
+      const current = await this.readMovableTab(latest.id as number)
+      if (!current?.id) return
+      this.removeTabFromGroups(current.id, current.windowId)
+      const groupInfo = this.getGroupByWindowIdAndTitle({
+        windowId: current.windowId,
+        groupTitle: title,
+      })
+      if (typeof groupInfo.id === 'number') {
+        const nextGroupId = await chrome.tabs.group({
+          groupId: groupInfo.id,
+          tabIds: current.id,
+        })
+        const tabIds = groupInfo.tabIds instanceof Set ? groupInfo.tabIds : new Set<number>()
+        tabIds.add(current.id)
+        groupInfo.tabIds = tabIds
+        groupInfo.id = nextGroupId
+        return
+      }
+
+      const groupId = await this.groupTabsInWindowNow({
+        tabIds: current.id,
+        windowId: current.windowId,
+      })
+      const tabIds = groupInfo.tabIds instanceof Set ? groupInfo.tabIds : new Set<number>()
+      tabIds.add(current.id)
+      Object.assign(groupInfo, {
+        collapsed: false,
+        title,
+        tabIds,
+        index: typeof groupInfo.index === 'number' ? groupInfo.index : -1,
+        windowId: current.windowId,
+        id: groupId,
+      })
+      await chrome.tabGroups.update(groupId, { title }).catch(error => {
+        Logger.log('更新新建分组标题失败', groupId, error)
+      })
+      if (Date.now() >= this.suppressGroupReorderUntil) {
+        await this.moveGroupSafely(groupId, this.getGroupIndex({
+          groupTitle: title,
+          sortIndex: groupInfo.index,
+          windowId: current.windowId,
+        }), current.windowId)
+      }
+    })
   }
 
   getLocalFileGroupTitle() {
@@ -419,6 +607,17 @@ class TabAssistant {
    * 标签添加时进行移动
    */
   async onTabCreated(tab: chrome.tabs.Tab) {
+    if (tab.id && this.setting.aiAutoGroupEnabled && !tab.pinned) {
+      this.aiManagedTabIds.add(tab.id)
+      this.aiDecisionStarted.add(tab.id)
+      if (typeof tab.groupId === 'number' && tab.groupId !== chrome.tabGroups.TAB_GROUP_ID_NONE) {
+        Logger.log('新标签已在分组中，保持不动', tab.id)
+        return
+      }
+      watchNewTabForAiGrouping(this, tab)
+      return
+    }
+
     if (tab.id) {
       Logger.log('创建标签后添加到分组', tab.url)
       await this.addTabToGroup(tab, true)
@@ -427,6 +626,13 @@ class TabAssistant {
   }
 
   async onTabAdded(tabId: number, changeInfo: chrome.tabs.TabChangeInfo) {
+    if (this.aiManagedTabIds.has(tabId)) {
+      if (this.aiDecisionStarted.has(tabId)) return
+      if (!changeInfo.url || isPlaceholderTabUrl(changeInfo.url)) return
+      this.aiDecisionStarted.add(tabId)
+      continueNewTabForAiGrouping(this, tabId)
+      return
+    }
     if (changeInfo.url || changeInfo.status === 'complete') {
       try {
         // 标签可能在事件派发后已被关闭（如被自动关闭），获取失败时直接忽略
@@ -454,6 +660,9 @@ class TabAssistant {
 
   /** 标签移除时更新数据 */
   async onTabRemoved(tabId: number, removeInfo: chrome.tabs.TabRemoveInfo) {
+    this.aiManagedTabIds.delete(tabId)
+    this.aiDecisionStarted.delete(tabId)
+    this.manualHoldUntil.delete(tabId)
     for (const group of this.getSortedGroups(removeInfo.windowId)) {
       if (group.tabIds?.has?.(tabId)) {
         Logger.log('onTabRemove', group.title, tabId)
@@ -464,6 +673,7 @@ class TabAssistant {
 
   /** 分组移除时更新数据 */
   onGroupRemoved(group: chrome.tabGroups.TabGroup) {
+    this.groupTitles.delete(group.id)
     const groupInfo = this.groups[group.windowId]?.[group.title || '']
     Logger.log('onGroupRemove', groupInfo)
     if (groupInfo?.id !== undefined && groupInfo.tabIds) {
@@ -474,6 +684,7 @@ class TabAssistant {
 
   /** 分组更新时更新分组数据 */
   onGroupUpdated(group: chrome.tabGroups.TabGroup) {
+    this.noteManualGroupTitle(group)
     const groupInfo = this.groups[group.windowId]?.[group.title || '']
     Logger.log('onGroupUpdated', groupInfo)
     if (groupInfo?.id !== undefined) {
@@ -483,6 +694,96 @@ class TabAssistant {
         id: group.id,
         collapsed: group.collapsed
       })
+    }
+  }
+
+  private shouldKeepCurrentGroup(tab: chrome.tabs.Tab) {
+    if (!this.setting.aiAutoGroupEnabled || !tab.url) return false
+    return !this.shouldUseExistingGrouping(tab.url)
+  }
+
+  /** 启动时只记住标签当前所在分组，不再按域名把它搬走。 */
+  private rememberTabInItsCurrentGroup(tab: chrome.tabs.Tab) {
+    if (!tab.url || !tab.id || tab.pinned) return
+    if (typeof tab.groupId !== 'number' || tab.groupId === chrome.tabGroups.TAB_GROUP_ID_NONE) return
+    const groupInfo = Object.values(this.getGroupsByWindowId({ windowId: tab.windowId }))
+      .find(group => group.id === tab.groupId)
+    if (!groupInfo) return
+    const tabIds = groupInfo.tabIds instanceof Set ? groupInfo.tabIds : new Set<number>()
+    tabIds.add(tab.id)
+    groupInfo.tabIds = tabIds
+  }
+
+  private async readMovableTab(tabId: number) {
+    if (this.disposed || this.hasManualTabHold(tabId)) return undefined
+    try {
+      const latest = await chrome.tabs.get(tabId)
+      if (this.disposed || latest.pinned || !latest.id || this.hasManualTabHold(latest.id)) return undefined
+      if (typeof latest.groupId === 'number' && latest.groupId !== chrome.tabGroups.TAB_GROUP_ID_NONE) return undefined
+      return latest
+    } catch (error) {
+      Logger.log('读取待分组标签失败', tabId, error)
+      return undefined
+    }
+  }
+
+  private rememberJoinedTab(
+    windowId: number,
+    groupId: number,
+    browserGroup: chrome.tabGroups.TabGroup,
+    tabId: number,
+  ) {
+    const groups = this.getGroupsByWindowId({ windowId })
+    let groupInfo = Object.values(groups).find(group => group.id === groupId)
+    if (!groupInfo) {
+      groupInfo = this.getGroupByWindowIdAndTitle({
+        windowId,
+        groupTitle: browserGroup.title || `group-${groupId}`,
+      })
+    }
+    const tabIds = groupInfo.tabIds instanceof Set ? groupInfo.tabIds : new Set<number>()
+    tabIds.add(tabId)
+    Object.assign(groupInfo, {
+      id: groupId,
+      title: browserGroup.title || groupInfo.title,
+      color: browserGroup.color,
+      collapsed: browserGroup.collapsed,
+      windowId,
+      index: typeof groupInfo.index === 'number' ? groupInfo.index : -1,
+      tabIds,
+    })
+  }
+
+  private noteManualTabEdit(tabId: number) {
+    if (!this.setting.aiAutoGroupEnabled || this.browserMutationDepth > 0) return
+    this.manualHoldUntil.set(tabId, Date.now() + AI_MANUAL_EDIT_COOLDOWN_MS)
+    Logger.log('检测到手动调整标签，短时间内不再自动分组', tabId)
+  }
+
+  private noteManualGroupReorder() {
+    if (!this.setting.aiAutoGroupEnabled || this.browserMutationDepth > 0) return
+    this.suppressGroupReorderUntil = Date.now() + AI_MANUAL_EDIT_COOLDOWN_MS
+    Logger.log('检测到手动移动分组，短时间内不再调整分组顺序')
+  }
+
+  private noteManualGroupTitle(group: chrome.tabGroups.TabGroup) {
+    const seen = this.groupTitles.has(group.id)
+    const previous = this.groupTitles.get(group.id)
+    this.groupTitles.set(group.id, group.title)
+    if (!this.setting.aiAutoGroupEnabled || this.browserMutationDepth > 0 || !seen || previous === group.title) return
+    this.suppressGroupReorderUntil = Date.now() + AI_MANUAL_EDIT_COOLDOWN_MS
+    Logger.log('检测到手动重命名分组，短时间内不再调整分组顺序', group.id)
+  }
+
+  private async trackBrowserMutation<T>(task: () => Promise<T>): Promise<T> {
+    this.browserMutationDepth += 1
+    try {
+      return await task()
+    } finally {
+      const timer = setTimeout(() => {
+        this.browserMutationDepth = Math.max(0, this.browserMutationDepth - 1)
+      }, 1000)
+      this.browserMutationTimers.push(timer)
     }
   }
 
