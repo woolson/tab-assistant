@@ -78,5 +78,9 @@ export interface TabAssistantConfig {
      * 标签页闲置多少分钟后自动关闭
      */
     autoCloseMinutes?: number
+    /**
+     * 新建标签页时使用浏览器内置的设备端模型自动分组。默认关闭。
+     */
+    aiAutoGroupEnabled?: boolean
   }
 }
