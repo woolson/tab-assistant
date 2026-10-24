@@ -4,7 +4,7 @@ import { useForm } from 'antd/es/form/Form';
 import PageHeader from '../PageHeader';
 import { DEFAULT_AUTO_CLOSE_MINUTES, EventNameEnum, StorageKeyEnum } from '@/common/const';
 import { TabAssistantConfig, ThemeMode, ToolbarEntryMode } from '@/pages/Background/types';
-import { ModelAvailability, queryLanguageModelAvailability } from '@/pages/Background/aiAutoGroupDecision';
+import { beginOnDeviceModelDownload, ModelAvailability, queryLanguageModelAvailability } from '@/pages/Background/aiAutoGroupDecision';
 import { languageOptions, TranslationKey, useI18n } from '@/common/i18n';
 import './style.less';
 
@@ -20,9 +20,7 @@ const toolbarEntryOptions: Array<{ value: ToolbarEntryMode; labelKey: Translatio
 ];
 
 function isAiAutoGroupSwitchDisabled(availability: ModelAvailability | 'checking', enabled: boolean) {
-  const modelMissing = availability === 'checking'
-    || availability === 'unsupported'
-    || availability === 'unavailable';
+  const modelMissing = availability === 'unsupported' || availability === 'unavailable';
   return modelMissing && !enabled;
 }
 
@@ -209,6 +207,17 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
             >
               <Switch
                 disabled={isAiAutoGroupSwitchDisabled(modelAvailability, Boolean(aiAutoGroupEnabled))}
+                onChange={checked => {
+                  if (!checked || modelAvailability === 'available') return;
+                  setModelAvailability('downloading');
+                  message.info(t('aiAutoGroupDownloadStarted'));
+                  void beginOnDeviceModelDownload().then(() => {
+                    setModelAvailability('available');
+                    message.success(t('aiAutoGroupDownloadReady'));
+                  }).catch(() => {
+                    void queryLanguageModelAvailability().then(setModelAvailability);
+                  });
+                }}
               />
             </Form.Item>
           </section>

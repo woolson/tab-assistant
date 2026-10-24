@@ -71,6 +71,26 @@ interface DomainInfo {
   registrable: string
 }
 
+/**
+ * 必须在用户点击的同一次调用里启动。模型尚未下载时，浏览器拒绝没有手势的 create()。
+ */
+export function beginOnDeviceModelDownload(onProgress?: (loaded: number) => void): Promise<void> {
+  const model = getLanguageModelFactory()
+  if (!model) return Promise.resolve()
+  return model.create({
+    expectedInputs: [{ type: 'text', languages: ['en'] }],
+    expectedOutputs: [{ type: 'text', languages: ['en'] }],
+    monitor(monitor: EventTarget) {
+      monitor.addEventListener('downloadprogress', event => {
+        const loaded = (event as Event & { loaded?: number }).loaded
+        if (typeof loaded === 'number') onProgress?.(loaded)
+      })
+    },
+  }).then(session => {
+    session.destroy?.()
+  })
+}
+
 export function getLanguageModelFactory(): LanguageModelFactory | undefined {
   const candidate = (globalThis as { LanguageModel?: LanguageModelFactory }).LanguageModel
   if (!candidate || typeof candidate.availability !== 'function' || typeof candidate.create !== 'function') {
