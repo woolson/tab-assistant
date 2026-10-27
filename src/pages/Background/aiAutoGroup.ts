@@ -1,19 +1,22 @@
 import { Logger } from "./helpers"
-import {
+import type {
   AiGroupDecision,
   GroupSnapshot,
-  buildGroupSnapshots,
-  compactGroupsForPrompt,
-  getLanguageModelFactory,
   LanguageModelFactory,
   LanguageModelSession,
   ModelAvailability,
+} from "./aiAutoGroupDecision"
+import {
+  buildGroupSnapshots,
+  compactGroupsForPrompt,
+  getLanguageModelFactory,
   pickFallbackGroupId,
   parseAiGroupDecision,
   queryLanguageModelAvailability,
   readRealUrl,
   isGroupedId,
 } from "./aiAutoGroupDecision"
+import { pickOpenerGroupId, readNavigationLink } from "./navigationLink"
 
 /** 新建标签仍停在新标签页时，等待真实地址的最长时间。 */
 const URL_WAIT_MS = 2500
@@ -22,6 +25,11 @@ const MODEL_TIMEOUT_MS = 4000
 /** 在队列里等待太久就不再调用模型，直接回退。 */
 const QUEUE_GIVE_UP_MS = 8000
 const AVAILABILITY_TTL_MS = 60_000
+/**
+ * tab.openerTabId 为空时，等一会儿 webNavigation 记录的 sourceTabId。
+ * 点击与新标签创建几乎同时发生，这里只兜住极小的时序差。
+ */
+const NAVIGATION_LINK_WAIT_MS = 250
 
 /** 用户刚手动移动标签或分组后，这段时间内不覆盖。 */
 export const AI_MANUAL_EDIT_COOLDOWN_MS = 10_000
@@ -89,8 +97,9 @@ export function continueNewTabForAiGrouping(host: AiGroupingHost, tabId: number)
 }
 
 async function settleNewTab(host: AiGroupingHost, tabId: number, waitForUrl: boolean) {
+  let ready: chrome.tabs.Tab | undefined
   try {
-    const ready = waitForUrl ? await waitForRealTab(tabId, URL_WAIT_MS) : await readTab(tabId)
+    ready = waitForUrl ? await waitForRealTab(tabId, URL_WAIT_MS) : await readTab(tabId)
     if (!ready || host.isDisposed() || !readRealUrl(ready)) {
       host.releaseInitialDecision(tabId)
       return
@@ -101,24 +110,46 @@ async function settleNewTab(host: AiGroupingHost, tabId: number, waitForUrl: boo
     return
   }
 
+  /** 仅为类型收窄，上面的分支已经返回。 */
+  if (!ready) return
+  const url = readRealUrl(ready)
+  if (!url) return
+
   const enqueuedAt = Date.now()
+  const sourceTab = await readSourceTab(tabId, ready.openerTabId)
+
+  /**
+   * 快速路径：来源标签已经在分组里，且新页面与来源页同主域名时直接归入来源分组。
+   * 不排队、不调用模型——这是实际频率最高的一类新标签。
+   */
+  if (!host.shouldUseExistingGrouping(url)) {
+    const openerGroupId = pickOpenerGroupId(sourceTab, url)
+    /** 跨窗口的分组无法直接加入，交回后面的队列与回退逻辑。 */
+    const sameWindow = sourceTab !== undefined && sourceTab.windowId === ready.windowId
+    if (openerGroupId !== undefined && sameWindow && !host.isDisposed() && !host.hasManualTabHold(tabId)) {
+      Logger.log('按来源标签直接归组', openerGroupId, url)
+      await host.joinTabToGroup(ready, openerGroupId)
+      return
+    }
+  }
+
   await enqueue(async () => {
     try {
       if (host.isDisposed() || host.hasManualTabHold(tabId)) return
       const latest = await readTab(tabId)
       if (!latest || host.isDisposed() || host.hasManualTabHold(tabId) || isGroupedId(latest.groupId)) return
-      const url = readRealUrl(latest)
-      if (!url) {
+      const currentUrl = readRealUrl(latest)
+      if (!currentUrl) {
         host.releaseInitialDecision(tabId)
         return
       }
 
-      if (host.shouldUseExistingGrouping(url)) {
+      if (host.shouldUseExistingGrouping(currentUrl)) {
         await host.groupTabWithExistingRules(latest)
         return
       }
 
-      await placeNewTab(host, latest, latest.openerTabId, url, enqueuedAt)
+      await placeNewTab(host, latest, sourceTab, currentUrl, enqueuedAt)
     } catch (error) {
       Logger.log('AI 自动分组失败', tabId, error)
     }
@@ -128,7 +159,7 @@ async function settleNewTab(host: AiGroupingHost, tabId: number, waitForUrl: boo
 async function placeNewTab(
   host: AiGroupingHost,
   tab: chrome.tabs.Tab,
-  openerTabId: number | undefined,
+  sourceTab: chrome.tabs.Tab | undefined,
   url: string,
   enqueuedAt: number,
 ) {
@@ -136,7 +167,7 @@ async function placeNewTab(
   const waitedTooLong = Date.now() - enqueuedAt > QUEUE_GIVE_UP_MS
   const decision = waitedTooLong
     ? undefined
-    : await withTimeout(signal => askModel(tab, openerTabId, url, snapshots, signal), MODEL_TIMEOUT_MS)
+    : await withTimeout(signal => askModel(tab, sourceTab, url, snapshots, signal), MODEL_TIMEOUT_MS)
 
   if (host.isDisposed() || !tab.id || host.hasManualTabHold(tab.id)) return
   Logger.log('AI 分组决策', decision || (waitedTooLong ? 'queue-fallback' : 'fallback'), url)
@@ -157,7 +188,7 @@ async function placeNewTab(
 
 async function askModel(
   tab: chrome.tabs.Tab,
-  openerTabId: number | undefined,
+  sourceTab: chrome.tabs.Tab | undefined,
   url: string,
   snapshots: GroupSnapshot[],
   signal: AbortSignal,
@@ -170,7 +201,7 @@ async function askModel(
   const validGroupIds = new Set(groups.map(group => group.id))
   const payload = JSON.stringify({
     instruction: 'Choose join, create, or leave for the target tab.',
-    source: await readOpener(openerTabId),
+    source: readSourcePayload(sourceTab),
     target: {
       url: clip(url, 180),
       title: clip(tab.title || '', 80),
@@ -333,17 +364,37 @@ async function loadSnapshots(windowId: number, ignoreTabId: number): Promise<Gro
   return buildGroupSnapshots(groups, tabs, ignoreTabId)
 }
 
-async function readOpener(openerTabId: number | undefined): Promise<{ url: string; title: string } | null> {
-  if (!openerTabId) return null
-  try {
-    const opener = await chrome.tabs.get(openerTabId)
-    const url = readRealUrl(opener)
-    if (!url) return null
-    return { url: clip(url, 180), title: clip(opener.title || '', 80) }
-  } catch (error) {
-    Logger.log('读取来源标签失败', openerTabId, error)
-    return null
-  }
+/**
+ * 确定打开这个标签页的来源标签。
+ * 优先用 webNavigation 记录的 sourceTabId（覆盖 rel=noopener、window.open 等
+ * openerTabId 为空的情况），退回到 tab.openerTabId；两者都没有时短暂等待一次。
+ */
+async function readSourceTab(tabId: number, openerTabId: number | undefined): Promise<chrome.tabs.Tab | undefined> {
+  const linkedTabId = readNavigationLink(tabId)?.sourceTabId
+  const sourceTabId = linkedTabId ?? openerTabId
+  if (sourceTabId !== undefined) return readTab(sourceTabId)
+  return waitForSourceTabId(tabId, NAVIGATION_LINK_WAIT_MS)
+}
+
+/** openerTabId 为空时，等 webNavigation 把来源写进来。 */
+function waitForSourceTabId(tabId: number, timeoutMs: number): Promise<chrome.tabs.Tab | undefined> {
+  return new Promise(resolve => {
+    const deadline = Date.now() + timeoutMs
+    const timer = setInterval(() => {
+      const sourceTabId = readNavigationLink(tabId)?.sourceTabId
+      if (sourceTabId === undefined && Date.now() < deadline) return
+      clearInterval(timer)
+      resolve(sourceTabId === undefined ? undefined : readTab(sourceTabId))
+    }, 25)
+  })
+}
+
+/** 拼进提示词的来源信息；地址不是普通网页时返回 null。 */
+function readSourcePayload(tab: chrome.tabs.Tab | undefined): { url: string; title: string } | null {
+  if (!tab) return null
+  const url = readRealUrl(tab)
+  if (!url) return null
+  return { url: clip(url, 180), title: clip(tab.title || '', 80) }
 }
 
 function readTab(tabId: number): Promise<chrome.tabs.Tab | undefined> {

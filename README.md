@@ -101,6 +101,7 @@ TabAssistant requests only the permissions needed to organize browser tabs:
 - `tabGroups`: Create and manage tab groups.
 - `storage`: Save rules, language, theme, and other preferences in browser extension storage.
 - `alarms`: Periodically check for inactive tabs so the optional auto-close feature keeps working after the extension's background service worker is suspended.
+- `webNavigation`: Detect which tab opened a new tab (so a tab opened from a grouped page can join the same group), including pages that use `rel="noopener"`. Only the relation between the two tabs is kept, in memory, for a few seconds.
 
 Tab organization runs locally. TabAssistant does not upload your browsing history or tab contents to its own servers. Rules and preferences are stored in browser extension storage and may sync between your devices through your browser's own synchronization mechanism.
 

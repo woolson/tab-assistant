@@ -11,6 +11,7 @@
     "build": "node serve/build.js",
     "build:bg": "ENTRY=background node serve/build.js",
     "start": "node serve/webserver.js",
+    "test": "node --experimental-strip-types --import ./tools/register-ts.mjs --test \"src/**/*.test.ts\"",
     "prettier": "prettier --write '**/*.{js,jsx,ts,tsx,json,css,scss,md}'"
   },
   "dependencies": {

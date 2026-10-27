@@ -15,6 +15,7 @@ import { AI_MANUAL_EDIT_COOLDOWN_MS, continueNewTabForAiGrouping, suspendOnDevic
 import { isPlaceholderTabUrl, normalizeGroupTitle } from "./aiAutoGroupDecision"
 import { reloadAutoClose, setupAutoClose } from "./autoClose"
 import { Logger } from "./helpers"
+import { forgetNavigationLink, rememberNavigationLink } from "./navigationLink"
 import { MatchTypeEnum, NameMap, RuleItem, Groups, TabAssistantConfig } from "./types"
 import { cloneDeep, remove } from 'lodash-es'
 
@@ -58,6 +59,9 @@ class TabAssistant {
   private readonly groupMovedListener = () => {
     this.noteManualGroupReorder()
   }
+  private readonly navigationTargetListener = (details: chrome.webNavigation.WebNavigationSourceCallbackDetails) => {
+    this.onCreatedNavigationTarget(details)
+  }
 
   private disposed = false
   /** 扩展自己正在改分组时，忽略随之而来的移动事件，避免把它们当成用户操作。 */
@@ -89,6 +93,7 @@ class TabAssistant {
     chrome.tabGroups.onRemoved.addListener(this.groupRemovedListener)
     chrome.tabGroups.onUpdated.addListener(this.groupUpdatedListener)
     chrome.tabGroups.onMoved.addListener(this.groupMovedListener)
+    chrome.webNavigation?.onCreatedNavigationTarget?.addListener(this.navigationTargetListener)
 
     if (!this.setting.aiAutoGroupEnabled) suspendOnDeviceModel()
   }
@@ -106,6 +111,7 @@ class TabAssistant {
     chrome.tabGroups.onRemoved.removeListener(this.groupRemovedListener)
     chrome.tabGroups.onUpdated.removeListener(this.groupUpdatedListener)
     chrome.tabGroups.onMoved.removeListener(this.groupMovedListener)
+    chrome.webNavigation?.onCreatedNavigationTarget?.removeListener(this.navigationTargetListener)
   }
 
   /** 主程序 */
@@ -625,6 +631,25 @@ class TabAssistant {
     }
   }
 
+  /**
+   * 记录「新标签页是被谁打开的」。
+   * 相比 tab.openerTabId，这个事件在 rel=noopener / window.open 场景下
+   * 依然能给出 sourceTabId，用来把上下两个页面关联起来。
+   */
+  private onCreatedNavigationTarget(details: chrome.webNavigation.WebNavigationSourceCallbackDetails) {
+    if (!this.setting.aiAutoGroupEnabled) return
+    if (typeof details.tabId !== 'number' || details.tabId < 0) return
+    const sourceTabId = details.sourceTabId
+    rememberNavigationLink(details.tabId, {
+      sourceTabId: typeof sourceTabId === 'number' && Number.isInteger(sourceTabId) && sourceTabId >= 0
+        ? sourceTabId
+        : undefined,
+      sourceFrameId: details.sourceFrameId,
+      url: details.url,
+      at: Date.now(),
+    })
+  }
+
   async onTabAdded(tabId: number, changeInfo: chrome.tabs.TabChangeInfo) {
     if (this.aiManagedTabIds.has(tabId)) {
       if (this.aiDecisionStarted.has(tabId)) return
@@ -663,6 +688,7 @@ class TabAssistant {
     this.aiManagedTabIds.delete(tabId)
     this.aiDecisionStarted.delete(tabId)
     this.manualHoldUntil.delete(tabId)
+    forgetNavigationLink(tabId)
     for (const group of this.getSortedGroups(removeInfo.windowId)) {
       if (group.tabIds?.has?.(tabId)) {
         Logger.log('onTabRemove', group.title, tabId)
