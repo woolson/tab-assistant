@@ -5,6 +5,7 @@ import PageHeader from '../PageHeader';
 import { DEFAULT_AUTO_CLOSE_MINUTES, EventNameEnum, StorageKeyEnum } from '@/common/const';
 import { TabAssistantConfig, ThemeMode, ToolbarEntryMode } from '@/pages/Background/types';
 import { beginOnDeviceModelDownload, ModelAvailability, queryLanguageModelAvailability } from '@/pages/Background/aiAutoGroupDecision';
+import { queryClickSourcePermission, removeClickSourcePermission, requestClickSourcePermission } from '@/common/permissions';
 import { languageOptions, TranslationKey, useI18n } from '@/common/i18n';
 import './style.less';
 
@@ -82,6 +83,7 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
           autoCloseEnabled: false,
           autoCloseMinutes: DEFAULT_AUTO_CLOSE_MINUTES,
           aiAutoGroupEnabled: false,
+          rememberClickSource: false,
         };
         form.setFieldsValue(previewSettings);
         setDefaultOptions([{ value: 'www', label: 'www' }]);
@@ -91,6 +93,7 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
       const response = await chrome.storage.sync.get([StorageKeyEnum.SETTING]);
       const settings = response?.[StorageKeyEnum.SETTING] || {};
       const removeKeywordList = settings.removeKeywordList || ['www'];
+      const clickSourceGranted = await queryClickSourcePermission();
       setDefaultOptions(removeKeywordList.map((value: string) => ({ value, label: value })));
       form.setFieldsValue({
         language,
@@ -101,6 +104,8 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
         ...settings,
         removeKeywordList,
         aiAutoGroupEnabled: Boolean(settings.aiAutoGroupEnabled),
+        /** 权限被撤销后不允许保留一个「开着但不生效」的开关 */
+        rememberClickSource: Boolean(settings.rememberClickSource) && clickSourceGranted,
       });
     };
 
@@ -116,6 +121,11 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
     if (formValue.language) setLanguage(formValue.language);
     onThemeModeChange(formValue.theme || 'system');
     message.success(t('settingsSaved'));
+
+    /** 关闭后就别再占着「读取所有网站」的授权了。 */
+    if (!nextSetting.rememberClickSource || !nextSetting.aiAutoGroupEnabled) {
+      void removeClickSourcePermission();
+    }
 
     if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
       chrome.runtime.sendMessage(EventNameEnum.RELOAD_RULE, () => undefined);
@@ -216,6 +226,27 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
                     message.success(t('aiAutoGroupDownloadReady'));
                   }).catch(() => {
                     void queryLanguageModelAvailability().then(setModelAvailability);
+                  });
+                }}
+              />
+            </Form.Item>
+
+            <Form.Item
+              className="click-source-setting"
+              label={t('clickSourceEnableSetting')}
+              name="rememberClickSource"
+              valuePropName="checked"
+              extra={t('clickSourceEnableSettingExtra')}
+            >
+              <Switch
+                disabled={!aiAutoGroupEnabled}
+                onChange={checked => {
+                  if (!checked) return;
+                  /** 权限申请必须落在这次点击的手势里，否则 Chrome 会拒绝。 */
+                  void requestClickSourcePermission().then(granted => {
+                    if (granted) return;
+                    form.setFieldValue('rememberClickSource', false);
+                    message.warning(t('clickSourcePermissionDenied'));
                   });
                 }}
               />

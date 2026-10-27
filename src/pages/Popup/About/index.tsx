@@ -155,6 +155,7 @@ export const About: React.FC<{
             <h4>{t('newFeature').replace('：', '').replace(':', '')}</h4>
             <ul>
               <li>{t('changelog1701')}</li>
+              <li>{t('changelog1702')}</li>
             </ul>
           </section>
 

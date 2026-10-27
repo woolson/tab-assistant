@@ -82,5 +82,10 @@ export interface TabAssistantConfig {
      * 新建标签页时使用浏览器内置的设备端模型自动分组。默认关闭。
      */
     aiAutoGroupEnabled?: boolean
+    /**
+     * 记录新标签页是从页面上哪个元素点开的，作为分组的额外依据。
+     * 需要用户额外授予网站访问权限，默认关闭。
+     */
+    rememberClickSource?: boolean
   }
 }

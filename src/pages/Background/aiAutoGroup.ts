@@ -16,6 +16,8 @@ import {
   readRealUrl,
   isGroupedId,
 } from "./aiAutoGroupDecision"
+import { buildClickPayload, readClickGesture } from "./clickGesture"
+import type { ClickGesture } from "./clickGesture"
 import { pickOpenerGroupId, readNavigationLink } from "./navigationLink"
 
 /** 新建标签仍停在新标签页时，等待真实地址的最长时间。 */
@@ -117,6 +119,8 @@ async function settleNewTab(host: AiGroupingHost, tabId: number, waitForUrl: boo
 
   const enqueuedAt = Date.now()
   const sourceTab = await readSourceTab(tabId, ready.openerTabId)
+  /** 尽早读取：队列等待期间点击记录可能已经过期。 */
+  const gesture = readClickGesture(sourceTab?.id)
 
   /**
    * 快速路径：来源标签已经在分组里，且新页面与来源页同主域名时直接归入来源分组。
@@ -149,7 +153,7 @@ async function settleNewTab(host: AiGroupingHost, tabId: number, waitForUrl: boo
         return
       }
 
-      await placeNewTab(host, latest, sourceTab, currentUrl, enqueuedAt)
+      await placeNewTab(host, latest, sourceTab, gesture, currentUrl, enqueuedAt)
     } catch (error) {
       Logger.log('AI 自动分组失败', tabId, error)
     }
@@ -160,6 +164,7 @@ async function placeNewTab(
   host: AiGroupingHost,
   tab: chrome.tabs.Tab,
   sourceTab: chrome.tabs.Tab | undefined,
+  gesture: ClickGesture | undefined,
   url: string,
   enqueuedAt: number,
 ) {
@@ -167,7 +172,7 @@ async function placeNewTab(
   const waitedTooLong = Date.now() - enqueuedAt > QUEUE_GIVE_UP_MS
   const decision = waitedTooLong
     ? undefined
-    : await withTimeout(signal => askModel(tab, sourceTab, url, snapshots, signal), MODEL_TIMEOUT_MS)
+    : await withTimeout(signal => askModel(tab, sourceTab, gesture, url, snapshots, signal), MODEL_TIMEOUT_MS)
 
   if (host.isDisposed() || !tab.id || host.hasManualTabHold(tab.id)) return
   Logger.log('AI 分组决策', decision || (waitedTooLong ? 'queue-fallback' : 'fallback'), url)
@@ -189,6 +194,7 @@ async function placeNewTab(
 async function askModel(
   tab: chrome.tabs.Tab,
   sourceTab: chrome.tabs.Tab | undefined,
+  gesture: ClickGesture | undefined,
   url: string,
   snapshots: GroupSnapshot[],
   signal: AbortSignal,
@@ -201,7 +207,7 @@ async function askModel(
   const validGroupIds = new Set(groups.map(group => group.id))
   const payload = JSON.stringify({
     instruction: 'Choose join, create, or leave for the target tab.',
-    source: readSourcePayload(sourceTab),
+    source: readSourcePayload(sourceTab, gesture),
     target: {
       url: clip(url, 180),
       title: clip(tab.title || '', 80),
@@ -389,12 +395,21 @@ function waitForSourceTabId(tabId: number, timeoutMs: number): Promise<chrome.ta
   })
 }
 
-/** 拼进提示词的来源信息；地址不是普通网页时返回 null。 */
-function readSourcePayload(tab: chrome.tabs.Tab | undefined): { url: string; title: string } | null {
-  if (!tab) return null
-  const url = readRealUrl(tab)
-  if (!url) return null
-  return { url: clip(url, 180), title: clip(tab.title || '', 80) }
+/**
+ * 拼进提示词的来源信息。除了来源页本身，还带上「点的是哪个元素」——
+ * 对「点 Issues 打开新标签页」这类场景，元素文字比 URL 相似度更准。
+ */
+function readSourcePayload(tab: chrome.tabs.Tab | undefined, gesture: ClickGesture | undefined) {
+  const clicked = buildClickPayload(gesture)
+  const url = tab ? readRealUrl(tab) : undefined
+  if (!url) return clicked ? { clicked } : null
+
+  const source: { url: string; title: string; clicked?: ReturnType<typeof buildClickPayload> } = {
+    url: clip(url, 180),
+    title: clip(tab?.title || '', 80),
+  }
+  if (clicked) source.clicked = clicked
+  return source
 }
 
 function readTab(tabId: number): Promise<chrome.tabs.Tab | undefined> {

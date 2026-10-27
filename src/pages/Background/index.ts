@@ -11,9 +11,16 @@
  */
 
 import { EventNameEnum, StorageKeyEnum } from "../../common/const"
+import { queryClickSourcePermission } from "../../common/permissions"
 import { AI_MANUAL_EDIT_COOLDOWN_MS, continueNewTabForAiGrouping, suspendOnDeviceModel, watchNewTabForAiGrouping } from "./aiAutoGroup"
 import { isPlaceholderTabUrl, normalizeGroupTitle } from "./aiAutoGroupDecision"
 import { reloadAutoClose, setupAutoClose } from "./autoClose"
+import {
+  forgetAllClickGestures,
+  forgetClickGesture,
+  normalizeClickGesture,
+  rememberClickGesture,
+} from "./clickGesture"
 import { Logger } from "./helpers"
 import { forgetNavigationLink, rememberNavigationLink } from "./navigationLink"
 import { MatchTypeEnum, NameMap, RuleItem, Groups, TabAssistantConfig } from "./types"
@@ -42,6 +49,7 @@ class TabAssistant {
     remove3w: false,
     removeKeywordList: [],
     aiAutoGroupEnabled: false,
+    rememberClickSource: false,
   }
 
   private readonly tabCreatedListener = this.onTabCreated.bind(this)
@@ -96,6 +104,9 @@ class TabAssistant {
     chrome.webNavigation?.onCreatedNavigationTarget?.addListener(this.navigationTargetListener)
 
     if (!this.setting.aiAutoGroupEnabled) suspendOnDeviceModel()
+
+    /** 点击来源采集只在 AI 分组开启且用户显式选择时才注册。 */
+    void syncClickGestureCapture(this.setting.aiAutoGroupEnabled === true && this.setting.rememberClickSource === true)
   }
 
   /** 配置重载时移除旧实例监听，避免同一个事件被重复处理。 */
@@ -689,6 +700,7 @@ class TabAssistant {
     this.aiDecisionStarted.delete(tabId)
     this.manualHoldUntil.delete(tabId)
     forgetNavigationLink(tabId)
+    forgetClickGesture(tabId)
     for (const group of this.getSortedGroups(removeInfo.windowId)) {
       if (group.tabIds?.has?.(tabId)) {
         Logger.log('onTabRemove', group.title, tabId)
@@ -905,7 +917,59 @@ setupAutoClose();
 
 void main();
 
+const CLICK_GESTURE_SCRIPT_ID = 'ta-click-gesture'
+
+/**
+ * 按「设置 + 实际权限」同步内容脚本的注册状态，重复调用是安全的。
+ * 权限只能由用户手势触发申请，这里只负责在改设置后让注册状态跟上。
+ */
+async function syncClickGestureCapture(enabled: boolean) {
+  const scripting = chrome.scripting
+  if (!scripting?.registerContentScripts) return
+
+  const registered = await scripting
+    .getRegisteredContentScripts({ ids: [CLICK_GESTURE_SCRIPT_ID] })
+    .catch(() => [] as chrome.scripting.RegisteredContentScript[])
+
+  const granted = enabled ? await queryClickSourcePermission() : false
+
+  if (!granted) {
+    if (registered.length) {
+      await scripting
+        .unregisterContentScripts({ ids: [CLICK_GESTURE_SCRIPT_ID] })
+        .catch(error => Logger.log('移除点击来源脚本失败', error))
+    }
+    forgetAllClickGestures()
+    return
+  }
+
+  if (registered.length) return
+
+  try {
+    await scripting.registerContentScripts([{
+      id: CLICK_GESTURE_SCRIPT_ID,
+      matches: ['<all_urls>'],
+      js: ['contentScript.bundle.js'],
+      runAt: 'document_start',
+      allFrames: true,
+      persistAcrossSessions: true,
+    }])
+  } catch (error) {
+    Logger.log('注册点击来源脚本失败', error)
+  }
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  /** 内容脚本上报的点击，只按发送方标签页保存，几秒后过期。 */
+  if (message?.type === 'ta:click-gesture') {
+    const sourceTabId = sender.tab?.id
+    if (typeof sourceTabId === 'number') {
+      const gesture = normalizeClickGesture(message.gesture)
+      if (gesture) rememberClickGesture(sourceTabId, gesture)
+    }
+    return false
+  }
+
   if (message !== EventNameEnum.RELOAD_RULE) return false
 
   void main()

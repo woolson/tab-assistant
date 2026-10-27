@@ -42,6 +42,7 @@ const ALL_ENTRY = {
   // options: path.join(__dirname, 'src', 'pages', 'Options', 'index.tsx'),
   popup: path.join(__dirname, 'src', 'pages', 'Popup', 'bootstrap.ts'),
   background: path.join(__dirname, 'src', 'pages', 'Background', 'index.ts'),
+  contentScript: path.join(__dirname, 'src', 'pages', 'ContentScript', 'index.ts'),
   // contentScript: path.join(__dirname, 'src', 'pages', 'Content', 'index.ts'),
   // devtools: path.join(__dirname, 'src', 'pages', 'Devtools', 'index.ts'),
   // panel: path.join(__dirname, 'src', 'pages', 'Panel', 'index.tsx'),

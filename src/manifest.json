@@ -6,11 +6,15 @@
   "minimum_chrome_version": "116",
   "permissions": [
     "alarms",
+    "scripting",
     "sidePanel",
     "tabGroups",
     "storage",
     "tabs",
     "webNavigation"
+  ],
+  "optional_host_permissions": [
+    "<all_urls>"
   ],
   "action": {
     "default_popup": "popup.html",
