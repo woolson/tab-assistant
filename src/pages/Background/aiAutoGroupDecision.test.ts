@@ -7,7 +7,6 @@ import {
   normalizeGroupTitle,
   parseAiGroupDecision,
   pickFallbackGroupId,
-  queryLanguageModelAvailability,
   readRealUrl,
   registrableDomain,
 } from './aiAutoGroupDecision.ts'
@@ -51,6 +50,8 @@ test('parse accepts the three actions and rejects garbage', () => {
   )
   assert.equal(parseAiGroupDecision('{"action":"create","title":"   "}', ids), undefined)
   assert.equal(parseAiGroupDecision('Sure, leave it.', ids), undefined)
+  assert.equal(parseAiGroupDecision({ action: 'create', title: 'example.com' }, ids), undefined)
+  assert.equal(parseAiGroupDecision({ action: 'create', title: 'https://example.com' }, ids), undefined)
   assert.deepEqual(parseAiGroupDecision('note {"action":"leave"} thanks', ids), { action: 'leave' })
 })
 
@@ -109,17 +110,16 @@ test('snapshots omit the new tab and ungrouped tabs, and the prompt keeps the cl
 
   const compact = compactGroupsForPrompt(snapshots, 'https://github.com/features', 1)
   assert.equal(compact.length, 1)
-  assert.equal(compact[0].id, 2)
-  assert.equal(compact[0].tabs[0].url, 'https://github.com/')
+  assert.equal(compact[0].id, 1)
+  assert.equal(compact[0].tabs[0].url, 'https://news.ycombinator.com/')
 })
 
-test('missing LanguageModel is unsupported and does not throw', async () => {
-  const scope = globalThis as { LanguageModel?: unknown }
-  const previous = scope.LanguageModel
-  delete scope.LanguageModel
-  try {
-    assert.equal(await queryLanguageModelAvailability(), 'unsupported')
-  } finally {
-    if (previous) scope.LanguageModel = previous
-  }
+
+test('only a grouped target can request a valid task rename', () => {
+  const ids = new Set([7, 9])
+  const raw = { action: 'rename', title: '挑选显示器' }
+  assert.equal(parseAiGroupDecision(raw, ids), undefined)
+  assert.equal(parseAiGroupDecision(raw, ids, 100), undefined)
+  assert.deepEqual(parseAiGroupDecision(raw, ids, 7), { action: 'rename', title: '挑选显示器', groupId: 7 })
+  assert.equal(parseAiGroupDecision({ action: 'rename', title: 'example.com' }, ids, 7), undefined)
 })

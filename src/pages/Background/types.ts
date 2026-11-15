@@ -1,3 +1,4 @@
+import type { AiApiConfig } from "../../common/aiApi"
 export type GroupColorEnum = chrome.tabGroups.ColorEnum
 export type Language = 'zh-CN' | 'en-US'
 export type ThemeMode = 'system' | 'light' | 'dark'
@@ -43,6 +44,7 @@ export interface Groups {
 
 /** 配置项 */
 export interface TabAssistantConfig {
+  aiApi?: AiApiConfig
   /** 分组规则 */
   rules: RuleItem[]
   /** 给域名设置别名 */
@@ -79,9 +81,11 @@ export interface TabAssistantConfig {
      */
     autoCloseMinutes?: number
     /**
-     * 新建标签页时使用浏览器内置的设备端模型自动分组。默认关闭。
+     * 使用配置的 AI API 按任务分组。默认关闭。
      */
     aiAutoGroupEnabled?: boolean
+    /** 记录 AI 分组决策并显示日志页面。默认关闭。 */
+    decisionLogEnabled?: boolean
     /**
      * 记录新标签页是从页面上哪个元素点开的，作为分组的额外依据。
      * 需要用户额外授予网站访问权限，默认关闭。

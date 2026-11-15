@@ -1,12 +1,12 @@
 import React, { memo, useCallback, useEffect, useState } from 'react';
 import { Button, Form, InputNumber, message, Segmented, Select, Switch } from 'antd';
 import { useForm } from 'antd/es/form/Form';
+import { DeleteOutlined } from '@ant-design/icons';
 import PageHeader from '../PageHeader';
 import { DEFAULT_AUTO_CLOSE_MINUTES, EventNameEnum, StorageKeyEnum } from '@/common/const';
 import { TabAssistantConfig, ThemeMode, ToolbarEntryMode } from '@/pages/Background/types';
-import { beginOnDeviceModelDownload, ModelAvailability, queryLanguageModelAvailability } from '@/pages/Background/aiAutoGroupDecision';
-import { queryClickSourcePermission, removeClickSourcePermission, requestClickSourcePermission } from '@/common/permissions';
 import { languageOptions, TranslationKey, useI18n } from '@/common/i18n';
+import { requestClearAiDecisionLog } from '@/pages/Background/aiDecisionLog';
 import './style.less';
 
 const canUseStorage = () => typeof chrome !== 'undefined' && Boolean(chrome.storage?.sync);
@@ -20,33 +20,35 @@ const toolbarEntryOptions: Array<{ value: ToolbarEntryMode; labelKey: Translatio
   { value: 'sidepanel', labelKey: 'toolbarEntrySidePanel' },
 ];
 
-function isAiAutoGroupSwitchDisabled(availability: ModelAvailability | 'checking', enabled: boolean) {
-  const modelMissing = availability === 'unsupported' || availability === 'unavailable';
-  return modelMissing && !enabled;
-}
-
-function aiAutoGroupExtraKey(availability: ModelAvailability | 'checking', enabled: boolean): TranslationKey {
-  if (availability === 'unsupported' || availability === 'unavailable') {
-    return enabled ? 'aiAutoGroupUnavailableWhileOnExtra' : 'aiAutoGroupUnavailableExtra';
-  }
-  if (availability === 'downloading') return 'aiAutoGroupDownloadingExtra';
-  if (availability === 'downloadable') return 'aiAutoGroupDownloadableExtra';
-  return 'aiAutoGroupEnableSettingExtra';
-}
-
 interface SettingProps {
   themeMode: ThemeMode;
   onThemeModeChange: (themeMode: ThemeMode) => void;
   highlightToolbarEntry?: boolean;
+  decisionLogEnabled?: boolean;
+  onDecisionLogEnabledChange: (enabled: boolean) => Promise<void>;
 }
 
-export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highlightToolbarEntry = false }) => {
+export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highlightToolbarEntry = false, decisionLogEnabled, onDecisionLogEnabledChange }) => {
   const [form] = useForm<TabAssistantConfig['setting']>();
   const [defaultOptions, setDefaultOptions] = useState<Array<{ value: string; label: string }>>([]);
   const { language, setLanguage, t } = useI18n();
   const autoCloseEnabled = Form.useWatch('autoCloseEnabled', form);
-  const aiAutoGroupEnabled = Form.useWatch('aiAutoGroupEnabled', form);
-  const [modelAvailability, setModelAvailability] = useState<ModelAvailability | 'checking'>('checking');
+  const [savingDecisionLog, setSavingDecisionLog] = useState(false);
+  const [clearingDecisionLog, setClearingDecisionLog] = useState(false);
+
+  const toggleDecisionLog = async (enabled: boolean) => {
+    setSavingDecisionLog(true);
+    try { await onDecisionLogEnabledChange(enabled); }
+    catch { message.error(t('aiApiSaveError')); }
+    finally { setSavingDecisionLog(false); }
+  };
+
+  const clearDecisionLog = async () => {
+    setClearingDecisionLog(true);
+    try { await requestClearAiDecisionLog(); message.success(t('decisionLogCleared')); }
+    catch { message.error(t('decisionLogClearError')); }
+    finally { setClearingDecisionLog(false); }
+  };
 
   useEffect(() => {
     if (!highlightToolbarEntry) return;
@@ -56,20 +58,6 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
     });
     return () => window.cancelAnimationFrame(frameId);
   }, [highlightToolbarEntry]);
-
-  useEffect(() => {
-    let cancelled = false;
-    queryLanguageModelAvailability()
-      .then(value => {
-        if (!cancelled) setModelAvailability(value);
-      })
-      .catch(() => {
-        if (!cancelled) setModelAvailability('unsupported');
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -82,8 +70,6 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
           removeKeywordList: ['www'],
           autoCloseEnabled: false,
           autoCloseMinutes: DEFAULT_AUTO_CLOSE_MINUTES,
-          aiAutoGroupEnabled: false,
-          rememberClickSource: false,
         };
         form.setFieldsValue(previewSettings);
         setDefaultOptions([{ value: 'www', label: 'www' }]);
@@ -93,7 +79,6 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
       const response = await chrome.storage.sync.get([StorageKeyEnum.SETTING]);
       const settings = response?.[StorageKeyEnum.SETTING] || {};
       const removeKeywordList = settings.removeKeywordList || ['www'];
-      const clickSourceGranted = await queryClickSourcePermission();
       setDefaultOptions(removeKeywordList.map((value: string) => ({ value, label: value })));
       form.setFieldsValue({
         language,
@@ -103,9 +88,6 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
         autoCloseMinutes: DEFAULT_AUTO_CLOSE_MINUTES,
         ...settings,
         removeKeywordList,
-        aiAutoGroupEnabled: Boolean(settings.aiAutoGroupEnabled),
-        /** 权限被撤销后不允许保留一个「开着但不生效」的开关 */
-        rememberClickSource: Boolean(settings.rememberClickSource) && clickSourceGranted,
       });
     };
 
@@ -113,23 +95,21 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
   }, [form, language, themeMode]);
 
   const onFinish = useCallback(async (formValue: TabAssistantConfig['setting']) => {
-    const nextSetting = {
-      ...formValue,
-      autoCloseMinutes: formValue.autoCloseMinutes || DEFAULT_AUTO_CLOSE_MINUTES,
-    };
-    if (canUseStorage()) await chrome.storage.sync.set({ [StorageKeyEnum.SETTING]: nextSetting });
-    if (formValue.language) setLanguage(formValue.language);
-    onThemeModeChange(formValue.theme || 'system');
-    message.success(t('settingsSaved'));
-
-    /** 关闭后就别再占着「读取所有网站」的授权了。 */
-    if (!nextSetting.rememberClickSource || !nextSetting.aiAutoGroupEnabled) {
-      void removeClickSourcePermission();
-    }
-
-    if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
-      chrome.runtime.sendMessage(EventNameEnum.RELOAD_RULE, () => undefined);
-    }
+    try {
+      if (canUseStorage()) {
+        const current = await chrome.storage.sync.get(StorageKeyEnum.SETTING);
+        await chrome.storage.sync.set({ [StorageKeyEnum.SETTING]: {
+          ...current[StorageKeyEnum.SETTING], ...formValue,
+          autoCloseMinutes: formValue.autoCloseMinutes || DEFAULT_AUTO_CLOSE_MINUTES,
+        } });
+      }
+      if (formValue.language) setLanguage(formValue.language);
+      onThemeModeChange(formValue.theme || 'system');
+      if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
+        chrome.runtime.sendMessage(EventNameEnum.RELOAD_RULE, () => void chrome.runtime.lastError);
+      }
+      message.success(t('settingsSaved'));
+    } catch { message.error(t('aiApiSaveError')); }
   }, [onThemeModeChange, setLanguage, t]);
 
   return (
@@ -205,51 +185,21 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
             </Form.Item>
           </section>
 
-          <section className="settings-section">
-            <h2><span />{t('aiAutoGroupSection')}</h2>
-
-            <Form.Item
-              className="ai-auto-group-setting"
-              label={t('aiAutoGroupEnableSetting')}
-              name="aiAutoGroupEnabled"
-              valuePropName="checked"
-              extra={t(aiAutoGroupExtraKey(modelAvailability, Boolean(aiAutoGroupEnabled)))}
-            >
-              <Switch
-                disabled={isAiAutoGroupSwitchDisabled(modelAvailability, Boolean(aiAutoGroupEnabled))}
-                onChange={checked => {
-                  if (!checked || modelAvailability === 'available') return;
-                  setModelAvailability('downloading');
-                  message.info(t('aiAutoGroupDownloadStarted'));
-                  void beginOnDeviceModelDownload().then(() => {
-                    setModelAvailability('available');
-                    message.success(t('aiAutoGroupDownloadReady'));
-                  }).catch(() => {
-                    void queryLanguageModelAvailability().then(setModelAvailability);
-                  });
-                }}
-              />
-            </Form.Item>
-
-            <Form.Item
-              className="click-source-setting"
-              label={t('clickSourceEnableSetting')}
-              name="rememberClickSource"
-              valuePropName="checked"
-              extra={t('clickSourceEnableSettingExtra')}
-            >
-              <Switch
-                disabled={!aiAutoGroupEnabled}
-                onChange={checked => {
-                  if (!checked) return;
-                  /** 权限申请必须落在这次点击的手势里，否则 Chrome 会拒绝。 */
-                  void requestClickSourcePermission().then(granted => {
-                    if (granted) return;
-                    form.setFieldValue('rememberClickSource', false);
-                    message.warning(t('clickSourcePermissionDenied'));
-                  });
-                }}
-              />
+          <section className="settings-section decision-log-setting">
+            <h2><span />{t('decisionLogSection')}</h2>
+            <Form.Item label={t('decisionLogEnableSetting')} extra={t('decisionLogEnableSettingExtra')}>
+              <div className="decision-log-controls">
+                <Switch
+                  aria-label={t('decisionLogEnableSetting')}
+                  checked={decisionLogEnabled === true}
+                  disabled={decisionLogEnabled === undefined || savingDecisionLog}
+                  loading={savingDecisionLog}
+                  onChange={enabled => void toggleDecisionLog(enabled)}
+                />
+                <Button icon={<DeleteOutlined />} loading={clearingDecisionLog} onClick={() => void clearDecisionLog()}>
+                  {t('decisionLogClearExisting')}
+                </Button>
+              </div>
             </Form.Item>
           </section>
 
@@ -284,7 +234,7 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
 
         <div className="settings-footer">
           <span>{t('settingsSyncHint')}</span>
-          <Button htmlType="submit" type="primary">{t('saveSettings')}</Button>
+          <Button htmlType="submit" type="primary" disabled={savingDecisionLog}>{t('saveSettings')}</Button>
         </div>
       </Form>
     </section>

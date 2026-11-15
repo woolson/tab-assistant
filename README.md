@@ -26,7 +26,7 @@ As tabs pile up, finding pages, organizing groups, and switching between windows
 
 TabAssistant organizes newly opened tabs according to your rules, automatically placing scattered pages into the right groups. From one interface, you can search, expand, collapse, close, or restore tabs while keeping every browser window independently organized.
 
-Tab organization happens locally in your browser. TabAssistant does not upload your browsing history or tab contents to its own servers. Rules and preferences are stored in browser extension storage and can use your browser's built-in sync capability.
+Rule-based organization runs locally. Optional AI grouping sends tab titles, URLs, group information, and any enabled page excerpts/click context directly to your selected AI provider, which may charge for API usage. TabAssistant has no relay server. Rules and preferences are stored in browser extension storage and can use your browser's built-in sync capability.
 
 ## Features
 
@@ -39,6 +39,16 @@ Tab organization happens locally in your browser. TabAssistant does not upload y
 - **Personalized appearance**: Choose a light theme, dark theme, or follow your system setting.
 - **Chinese and English UI**: Switch between Simplified Chinese and English.
 - **Configuration migration**: Import and export grouping rules and extension preferences.
+
+Decision logging is off by default. Enable **Settings → Logging → Record decision logs** to record AI grouping decisions and show the log page. Disabling it immediately stops recording and hides the page without affecting auto-grouping. Switch changes are saved immediately and persist after reopening. **Clear existing logs** also works while logging is off and does not change the switch. Logs stay on this device.
+
+## AI API setup
+
+Open **Rules** and use the same segmented control as the language setting to choose **Custom mode** or **AI mode**. Custom mode shows your saved rules on a blue background; AI mode shows API settings on a purple background, with matching dark-theme colors. The selected mode is saved immediately without a success notification, and switching preserves your rules and API settings. In AI mode, select DeepSeek, OpenAI, Qwen, Claude or Gemini, enter your API key and save the AI configuration. Provider endpoints and default models are filled automatically. Choose a model from the main settings dropdown; a small note below explains its purpose and whether it is recommended for auto-grouping. Choose **Custom model** to enter another model ID. Updated defaults do not overwrite saved models. **Test connection** sends a small test prompt without browsing data; testing does not save the draft. Expand **Endpoint and timeout settings** to override endpoint defaults or select **Custom** to enter an OpenAI Chat Completions, Anthropic Messages or Gemini endpoint, model and timeout. HTTPS and loopback HTTP endpoints are supported. Request timeouts are configurable from 5 to 25 seconds (25 by default), below the [background worker fetch deadline](https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/lifecycle). HTTP redirects are rejected so credentials are not forwarded to another endpoint.
+
+AI grouping uses tasks and intent across websites. Queries from common search engines are sent separately so long tracking URLs cannot hide the topic. If a successful model response declines to group an ungrouped search page, an explicit query can still create or reuse a narrowly named research task; the log identifies this search-topic decision. When a grouped page navigates, changes its title, or changes its captured text at the same URL, its task is reassessed against the current window: it can stay in its current group, join a more suitable group, or get a new task group. A shared task title can also be refined without moving tabs. Text changes require content capture and site access. Stable, unchanged summaries are deduplicated so DOM noise does not repeatedly call the API. Manual group names and explicit rules are preserved. Missing configuration or API errors leave new tabs ungrouped and keep existing tabs in their current group; there is no domain fallback in AI mode. Browser built-in models and model downloads are no longer used.
+
+Preset references: [DeepSeek](https://api-docs.deepseek.com/quick_start/agent_integrations/), [OpenAI](https://developers.openai.com/api/docs/models/gpt-6-luna), [Qwen](https://help.aliyun.com/zh/api-gateway/ai-gateway/user-guide/creating-services), [Claude](https://platform.claude.com/docs/en/models/overview), [Gemini](https://ai.google.dev/gemini-api/docs/models/gemini-2.5-flash-lite). Available models depend on your provider account; defaults can be overridden.
 
 ## Interface Preview
 
@@ -106,9 +116,9 @@ TabAssistant requests only the permissions needed to organize browser tabs:
 
 ### Optional site access
 
-Turning on **Remember what you clicked to open a new tab** asks for access to all sites at that moment; nothing is requested at install time. With it on, a small content script records the link or button you clicked (element text, link address, section heading, selected text) and sends it to the background worker, where it is kept in memory for a few seconds and then dropped. Turning the feature off removes the access again.
+Saving AI configuration or testing a connection requests access to the configured API host. Turning on **Read page content and new-tab click context** separately requests site access to collect page descriptions, headings, bounded prose and clicked-link context. Turning capture off stops collection and unregisters its content script; existing host permissions remain available for API calls. You can revoke permissions in the browser extension settings. Nothing is requested at install time.
 
-Tab organization runs locally. TabAssistant does not upload your browsing history or tab contents to its own servers. Rules and preferences are stored in browser extension storage and may sync between your devices through your browser's own synchronization mechanism.
+Rule-based organization runs locally. When AI grouping is enabled, the selected provider receives tab titles, URLs, group information, and any enabled page excerpts/click context. API keys and endpoint settings stay in local extension storage, are not synced, and are excluded from exports. Rules and preferences are stored in browser extension storage and may sync between your devices through your browser's own synchronization mechanism.
 
 ## Related Documentation
 

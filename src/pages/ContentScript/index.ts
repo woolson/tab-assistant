@@ -1,12 +1,5 @@
-/**
- * 点击来源记录器。
- *
- * 只在用户开启「记住点击来源」并授予网站访问权限后才会被注册，
- * 目标是回答一个问题：这个新标签页是从哪个页面上的哪个元素点开的。
- *
- * 只读取被点元素的标签、文字、链接、所在区块标题和选中文字，
- * 不读取页面正文，不写存储，不在本地缓存，直接发给后台并很快过期。
- */
+/** Optional click and page-change capture; active only with AI + capture enabled. */
+import { watchPageContentChanges } from './pageChanges'
 
 const MAX_TEXT = 120
 const MAX_HREF = 300
@@ -64,6 +57,48 @@ function readGesture(event: MouseEvent) {
   }
 }
 
-// capture 阶段监听，避免页面自己 stopPropagation 把记录吞掉
-window.addEventListener('click', readGesture, true)
-window.addEventListener('auxclick', readGesture, true)
+const scope = globalThis as typeof globalThis & {
+  __taCaptureVersion?: string
+  __taCaptureDispose?: () => void
+}
+try { scope.__taCaptureDispose?.() } catch { /* An old extension context may have been invalidated. */ }
+let disposed = false
+let captureEnabled = false
+let stopWatching: (() => void) | undefined
+
+function setCapture(enabled: boolean) {
+  if (enabled === captureEnabled || disposed) return
+  captureEnabled = enabled
+  window.removeEventListener('click', readGesture, true)
+  window.removeEventListener('auxclick', readGesture, true)
+  stopWatching?.()
+  stopWatching = undefined
+  if (!enabled || disposed) return
+  window.addEventListener('click', readGesture, true)
+  window.addEventListener('auxclick', readGesture, true)
+  if (window.top === window && /^https?:$/.test(location.protocol)) {
+    stopWatching = watchPageContentChanges((url, signature) => {
+      try {
+        chrome.runtime.sendMessage({ type: 'ta:page-content-changed', url, signature }, () => void chrome.runtime.lastError)
+      } catch { setCapture(false) }
+    })
+  }
+}
+
+const applySettings = (settings: { aiAutoGroupEnabled?: boolean; rememberClickSource?: boolean } | undefined) => {
+  setCapture(settings?.aiAutoGroupEnabled === true && settings?.rememberClickSource === true)
+}
+const settingsChanged = (changes: { [key: string]: chrome.storage.StorageChange }, area: string) => {
+  if (area === 'sync' && changes.TA_SETTING) applySettings(changes.TA_SETTING.newValue)
+}
+chrome.storage.onChanged.addListener(settingsChanged)
+scope.__taCaptureVersion = 'page-changes-v1'
+scope.__taCaptureDispose = () => {
+  setCapture(false)
+  disposed = true
+  chrome.storage.onChanged.removeListener(settingsChanged)
+  delete scope.__taCaptureVersion
+}
+void chrome.storage.sync.get('TA_SETTING').then(result => {
+  if (!disposed) applySettings(result.TA_SETTING)
+}).catch(() => setCapture(false))

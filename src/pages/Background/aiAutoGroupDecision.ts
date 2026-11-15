@@ -20,7 +20,7 @@ const MULTI_PART_SUFFIXES = new Set([
   'com.vn', 'co.il', 'com.ua', 'com.pl',
 ])
 
-export type AiGroupAction = 'join' | 'create' | 'leave'
+export type AiGroupAction = 'join' | 'create' | 'leave' | 'rename'
 
 export interface AiGroupDecision {
   action: AiGroupAction
@@ -48,75 +48,9 @@ export interface SnapshotTab {
   title?: string
 }
 
-export type ModelAvailability = 'available' | 'downloadable' | 'downloading' | 'unavailable' | 'unsupported'
-
-export interface LanguageModelSession {
-  prompt(input: string, options?: { responseConstraint?: object; signal?: AbortSignal }): Promise<string>
-  destroy?: () => void
-}
-
-export interface LanguageModelFactory {
-  availability: (options?: object) => Promise<string>
-  create: (options?: object) => Promise<LanguageModelSession>
-  params?: () => Promise<{
-    defaultTopK: number
-    maxTopK: number
-    defaultTemperature: number
-    maxTemperature: number
-  }>
-}
-
 interface DomainInfo {
   host: string
   registrable: string
-}
-
-/**
- * 必须在用户点击的同一次调用里启动。模型尚未下载时，浏览器拒绝没有手势的 create()。
- */
-export function beginOnDeviceModelDownload(onProgress?: (loaded: number) => void): Promise<void> {
-  const model = getLanguageModelFactory()
-  if (!model) return Promise.resolve()
-  return model.create({
-    expectedInputs: [{ type: 'text', languages: ['en'] }],
-    expectedOutputs: [{ type: 'text', languages: ['en'] }],
-    monitor(monitor: EventTarget) {
-      monitor.addEventListener('downloadprogress', event => {
-        const loaded = (event as Event & { loaded?: number }).loaded
-        if (typeof loaded === 'number') onProgress?.(loaded)
-      })
-    },
-  }).then(session => {
-    session.destroy?.()
-  })
-}
-
-export function getLanguageModelFactory(): LanguageModelFactory | undefined {
-  const candidate = (globalThis as { LanguageModel?: LanguageModelFactory }).LanguageModel
-  if (!candidate || typeof candidate.availability !== 'function' || typeof candidate.create !== 'function') {
-    return undefined
-  }
-  return candidate
-}
-
-export async function queryLanguageModelAvailability(): Promise<ModelAvailability> {
-  const model = getLanguageModelFactory()
-  if (!model) return 'unsupported'
-
-  const textOptions = {
-    expectedInputs: [{ type: 'text', languages: ['en'] }],
-    expectedOutputs: [{ type: 'text', languages: ['en'] }],
-  }
-
-  try {
-    return normalizeAvailability(await model.availability(textOptions))
-  } catch (error) {
-    try {
-      return normalizeAvailability(await model.availability())
-    } catch (fallbackError) {
-      return 'unsupported'
-    }
-  }
 }
 
 export function isGroupedId(groupId: number | undefined): boolean {
@@ -165,7 +99,7 @@ export function normalizeGroupTitle(value: unknown): string | undefined {
   return title
 }
 
-export function parseAiGroupDecision(raw: unknown, validGroupIds: ReadonlySet<number>): AiGroupDecision | undefined {
+export function parseAiGroupDecision(raw: unknown, validGroupIds: ReadonlySet<number>, currentGroupId?: number): AiGroupDecision | undefined {
   const record = typeof raw === 'string'
     ? parseJsonObject(raw)
     : isRecord(raw)
@@ -180,10 +114,11 @@ export function parseAiGroupDecision(raw: unknown, validGroupIds: ReadonlySet<nu
     if (groupId === undefined || !validGroupIds.has(groupId)) return undefined
     return { action: 'join', groupId }
   }
-  if (action === 'create') {
+  if (action === 'create' || action === 'rename') {
+    if (action === 'rename' && (currentGroupId === undefined || !validGroupIds.has(currentGroupId))) return undefined
     const title = normalizeGroupTitle(record.title)
-    if (!title) return undefined
-    return { action: 'create', title }
+    if (!title || /^(?:https?:\/\/|www\.)/i.test(title) || /^(?:[a-z0-9-]+\.)+[a-z]{2,}\/?$/i.test(title)) return undefined
+    return action === 'rename' ? { action: 'rename', title, groupId: currentGroupId } : { action: 'create', title }
   }
   return undefined
 }
@@ -227,8 +162,8 @@ export function buildGroupSnapshots(
     })
 }
 
-export function compactGroupsForPrompt(groups: GroupSnapshot[], targetUrl: string, limit = 12): GroupSnapshot[] {
-  return rankGroups(groups, targetUrl).slice(0, limit).map(group => ({
+export function compactGroupsForPrompt(groups: GroupSnapshot[], _targetUrl: string, limit = 40): GroupSnapshot[] {
+  return groups.slice(0, limit).map(group => ({
     id: group.id,
     title: clipText(group.title, 80),
     tabs: group.tabs.slice(0, 2).map(tab => ({
@@ -261,14 +196,6 @@ export function clipText(value: string, max: number): string {
   const chars = Array.from(value)
   if (chars.length <= max) return value
   return chars.slice(0, max).join('')
-}
-
-function rankGroups(groups: GroupSnapshot[], targetUrl: string): GroupSnapshot[] {
-  const target = domainInfo(targetUrl)
-  return groups
-    .map(group => ({ group, score: target ? scoreGroup(group, target) : 0 }))
-    .sort((prev, next) => next.score - prev.score || prev.group.id - next.group.id)
-    .map(item => item.group)
 }
 
 function scoreGroup(group: GroupSnapshot, target: DomainInfo): number {
@@ -338,11 +265,4 @@ function tryParseObject(text: string): Record<string, unknown> | undefined {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-}
-
-function normalizeAvailability(value: unknown): ModelAvailability {
-  if (value === 'available' || value === 'downloadable' || value === 'downloading' || value === 'unavailable') {
-    return value
-  }
-  return 'unavailable'
 }

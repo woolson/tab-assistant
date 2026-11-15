@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   AppstoreOutlined,
+  FileTextOutlined,
   FolderOpenOutlined,
   InfoCircleOutlined,
   InsertRowRightOutlined,
@@ -11,18 +12,20 @@ import SidebarTexture from '@/assets/img/ui/sidebar-aurora.png';
 import SidePanelTexture from '@/assets/img/ui/sidepanel-aurora.jpg';
 import { useI18n } from '@/common/i18n';
 
-export type PopupPageKey = 'tabOverview' | 'rules' | 'setting' | 'about';
+export type PopupPageKey = 'tabOverview' | 'rules' | 'setting' | 'logs' | 'about';
 
 interface HeaderProps {
   activeKey: PopupPageKey;
   onChange: (key: PopupPageKey) => void;
   surface?: 'popup' | 'sidepanel';
+  showDecisionLog?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   activeKey,
   onChange,
   surface = 'popup',
+  showDecisionLog = false,
 }) => {
   const { t } = useI18n();
   const openSidePanel = () => {
@@ -34,6 +37,7 @@ export const Header: React.FC<HeaderProps> = ({
     { key: 'tabOverview' as const, label: t('navTabs'), icon: <FolderOpenOutlined /> },
     { key: 'rules' as const, label: t('navRules'), icon: <AppstoreOutlined /> },
     { key: 'setting' as const, label: t('navSettings'), icon: <SettingOutlined /> },
+    ...(showDecisionLog ? [{ key: 'logs' as const, label: t('navLogs'), icon: <FileTextOutlined /> }] : []),
     { key: 'about' as const, label: t('navAbout'), icon: <InfoCircleOutlined /> },
   ];
 

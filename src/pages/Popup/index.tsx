@@ -14,6 +14,7 @@ export type ExtensionSurface = 'popup' | 'sidepanel';
 const TabOverview = lazy(() => import('./TabOverview'));
 const Rules = lazy(() => import('./Rules'));
 const Setting = lazy(() => import('./Setting'));
+const DecisionLog = lazy(() => import('./DecisionLog'));
 const About = lazy(() => import('./About'));
 const previewTheme = new URLSearchParams(window.location.search).get('theme');
 const previewThemeOverride = previewTheme === 'light' || previewTheme === 'dark'
@@ -29,6 +30,7 @@ const previewPageOverride: PopupPageKey | undefined = (
   previewPage === 'tabOverview'
   || previewPage === 'rules'
   || previewPage === 'setting'
+  || previewPage === 'logs'
   || previewPage === 'about'
 ) ? previewPage : undefined;
 
@@ -121,6 +123,41 @@ const PopupApp: React.FC<{
   const [activeKey, setActiveKey] = useState<PopupPageKey>(previewPageOverride || 'tabOverview');
   const [showSidePanelGuide, setShowSidePanelGuide] = useState(previewSidePanelGuide);
   const [highlightToolbarEntry, setHighlightToolbarEntry] = useState(false);
+  const [decisionLogEnabled, setDecisionLogEnabled] = useState<boolean>();
+  const visibleKey = activeKey === 'logs' && decisionLogEnabled !== true ? 'tabOverview' : activeKey;
+
+  useEffect(() => {
+    if (typeof chrome === 'undefined' || !chrome.storage?.sync) {
+      setDecisionLogEnabled(false);
+      return;
+    }
+    let changed = false;
+    let cancelled = false;
+    const onChanged = (changes: { [key: string]: chrome.storage.StorageChange }, area: string) => {
+      if (area !== 'sync' || !changes[StorageKeyEnum.SETTING]) return;
+      changed = true;
+      setDecisionLogEnabled(changes[StorageKeyEnum.SETTING].newValue?.decisionLogEnabled === true);
+    };
+    chrome.storage.onChanged.addListener(onChanged);
+    void chrome.storage.sync.get(StorageKeyEnum.SETTING).then(stored => {
+      if (!cancelled && !changed) setDecisionLogEnabled(stored[StorageKeyEnum.SETTING]?.decisionLogEnabled === true);
+    }).catch(() => { if (!cancelled && !changed) setDecisionLogEnabled(false); });
+    return () => { cancelled = true; chrome.storage.onChanged.removeListener(onChanged); };
+  }, []);
+
+  useEffect(() => {
+    if (activeKey === 'logs' && decisionLogEnabled === false) setActiveKey('tabOverview');
+  }, [activeKey, decisionLogEnabled]);
+
+  const changeDecisionLogging = async (enabled: boolean) => {
+    if (typeof chrome !== 'undefined' && chrome.storage?.sync) {
+      const current = await chrome.storage.sync.get(StorageKeyEnum.SETTING);
+      await chrome.storage.sync.set({ [StorageKeyEnum.SETTING]: {
+        ...current[StorageKeyEnum.SETTING], decisionLogEnabled: enabled,
+      } });
+    }
+    setDecisionLogEnabled(enabled);
+  };
 
   useEffect(() => {
     if (previewSidePanelGuide) return;
@@ -158,26 +195,30 @@ const PopupApp: React.FC<{
         }}
       >
         <Header
-          activeKey={activeKey}
+          activeKey={visibleKey}
           onChange={setActiveKey}
           surface={surface}
+          showDecisionLog={decisionLogEnabled === true}
         />
 
         <main className="popup-content">
-          {activeKey === 'tabOverview' && (
+          {visibleKey === 'tabOverview' && (
             <LazyTabPane><TabOverview surface={surface} /></LazyTabPane>
           )}
-          {activeKey === 'rules' && <LazyTabPane><Rules /></LazyTabPane>}
-          {activeKey === 'setting' && (
+          {visibleKey === 'rules' && <LazyTabPane><Rules /></LazyTabPane>}
+          {visibleKey === 'setting' && (
             <LazyTabPane>
               <Setting
                 themeMode={themeMode}
                 onThemeModeChange={setThemeMode}
                 highlightToolbarEntry={highlightToolbarEntry}
+                decisionLogEnabled={decisionLogEnabled}
+                onDecisionLogEnabledChange={changeDecisionLogging}
               />
             </LazyTabPane>
           )}
-          {activeKey === 'about' && (
+          {visibleKey === 'logs' && <LazyTabPane><DecisionLog /></LazyTabPane>}
+          {visibleKey === 'about' && (
             <LazyTabPane>
               <About onThemeModeChange={setThemeMode} />
             </LazyTabPane>

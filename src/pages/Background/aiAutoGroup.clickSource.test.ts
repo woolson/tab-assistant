@@ -1,6 +1,7 @@
+import { defaultAiApiConfig } from '../../common/aiApi.ts'
 /**
  * 验证点击来源真的进入了提示词。
- * 用一个假的 LanguageModel 捕获 payload，断言 source.clicked 的内容与清洗结果。
+ * 用模拟 API 捕获 payload，断言 source.clicked 的内容与清洗结果。
  */
 import assert from 'node:assert/strict'
 import test from 'node:test'
@@ -32,19 +33,20 @@ const prompts: string[] = []
   },
 }
 
-let availabilityChecks = 0
-;(globalThis as any).LanguageModel = {
-  availability: async () => {
-    availabilityChecks += 1
-    return 'available'
-  },
-  create: async () => ({
-    prompt: async (input: string) => {
-      prompts.push(input)
-      return '{"action":"leave"}'
-    },
-    destroy: () => {},
-  }),
+let reply = '{"action":"leave"}'
+let contentReads = 0
+;(globalThis as any).chrome.scripting = { executeScript: async () => {
+  contentReads += 1
+  return [{ result: { description: '比较显示器的色彩与价格', headings: ['显示器评测'], excerpt: '适合设计工作的显示器' } }]
+} }
+const systems: string[] = []
+;(globalThis as any).chrome.permissions = { contains: (_permissions: any, callback: any) => callback(true) }
+;(globalThis as any).chrome.runtime = {}
+;(globalThis as any).fetch = async (_url: string, init: any) => {
+  const body = JSON.parse(init.body)
+  prompts.push(body.messages[1].content)
+  systems.push(body.messages[0].content)
+  return { ok: true, json: async () => ({ choices: [{ message: { content: reply } }] }) }
 }
 
 const { watchNewTabForAiGrouping } = await import('./aiAutoGroup.ts')
@@ -67,6 +69,7 @@ function createHost() {
   const joined: number[] = []
   return {
     joined,
+    getAiApiConfig: () => ({ ...defaultAiApiConfig(), apiKey: 'test-key' }),
     isDisposed: () => false,
     hasManualTabHold: () => false,
     shouldUseExistingGrouping: () => false,
@@ -108,7 +111,7 @@ test('the model sees which element the user clicked', async () => {
   assert.equal(payload.source.clicked.href, 'https://github.com/woolson/tab-assistant/issues')
   assert.equal(payload.source.clicked.section, 'woolson/tab-assistant')
   // 没有卡住的选项时走 leave
-  assert.equal(availabilityChecks > 0, true)
+  assert.equal(prompts.length > 0, true)
 })
 
 test('without a gesture the source has no clicked field', async () => {
@@ -128,4 +131,42 @@ test('without a gesture the source has no clicked field', async () => {
   const payload = JSON.parse(prompts[0])
   assert.equal(payload.source.url, 'https://github.com/woolson/tab-assistant')
   assert.equal('clicked' in payload.source, false)
+})
+
+
+test('task naming uses page context and asks the model even for a grouped same-site opener', async () => {
+  tabStore.clear()
+  resetClickGestures()
+  prompts.length = 0
+  contentReads = 0
+  seedTab({ id: 1, url: 'https://example.com/travel', groupId: 7 })
+  const newTab = seedTab({ id: 2, url: 'https://example.com/monitors', openerTabId: 1 })
+  reply = '{"action":"create","title":"挑选显示器"}'
+  const titles: string[] = []
+  const host = { ...createHost(), canReadPageContent: () => true, createGroupForTab: async (_tab: any, title: string) => { titles.push(title) } }
+  watchNewTabForAiGrouping(host as any, newTab)
+  assert.equal(await waitFor(() => titles.length > 0), true)
+  assert.deepEqual(titles, ['挑选显示器'])
+  assert.deepEqual(host.joined, [])
+  const payload = JSON.parse(prompts[0])
+  assert.equal(payload.target.content.description, '比较显示器的色彩与价格')
+  assert.equal(payload.source.groupId, 7)
+  assert.equal(contentReads, 1)
+  assert.match(systems[systems.length - 1], /Never use a domain/)
+  reply = '{"action":"leave"}'
+})
+
+test('content capture off does not read page text and leave never uses domain grouping', async () => {
+  tabStore.clear()
+  prompts.length = 0
+  contentReads = 0
+  const newTab = seedTab({ id: 2, url: 'https://example.com/unclear', openerTabId: 1 })
+  let domainCalls = 0
+  const host = { ...createHost(), groupTabWithExistingRules: async () => { domainCalls += 1 } }
+  watchNewTabForAiGrouping(host as any, newTab)
+  assert.equal(await waitFor(() => prompts.length > 0), true)
+  await new Promise(resolve => setTimeout(resolve, 30))
+  assert.equal(contentReads, 0)
+  assert.equal(domainCalls, 0)
+  assert.equal(JSON.parse(prompts[0]).target.content, undefined)
 })

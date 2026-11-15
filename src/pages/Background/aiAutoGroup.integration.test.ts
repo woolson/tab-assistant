@@ -1,6 +1,6 @@
 /**
  * 用假的 chrome API 跑通新标签页的放置流程，
- * 重点验证「来源标签已分组 + 同站」时完全不碰设备端模型。
+ * 验证没有 API 配置时，同站和跨站标签都保持未分组。
  */
 import assert from 'node:assert/strict'
 import test from 'node:test'
@@ -44,8 +44,7 @@ const listeners = { updated: new Set<(id: number) => void>(), removed: new Set<(
     },
   },
 }
-// 明确没有设备端模型
-delete (globalThis as any).LanguageModel
+// 未配置 API：保持未分组，不走域名兜底。
 
 const { watchNewTabForAiGrouping } = await import('./aiAutoGroup.ts')
 
@@ -58,27 +57,30 @@ function seedTab(tab: Partial<FakeTab> & { id: number; url: string }): FakeTab {
 interface Recorder extends AiGroupingHost {
   joined: number[]
   created: string[]
+  domainGrouped: number
 }
 
 function createHost(): Recorder {
   const joined: number[] = []
   const created: string[] = []
-  return {
+  const host: Recorder = {
     joined,
     created,
+    domainGrouped: 0,
     isDisposed: () => false,
     hasManualTabHold: () => false,
     shouldUseExistingGrouping: () => false,
-    groupTabWithExistingRules: async () => {},
+    groupTabWithExistingRules: async () => { host.domainGrouped += 1 },
     joinTabToGroup: async (_tab, groupId) => { joined.push(groupId) },
     createGroupForTab: async (_tab, title) => { created.push(title) },
     releaseInitialDecision: () => {},
   }
+  return host
 }
 
 const tick = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
-test('a tab opened from a grouped same-site page joins that group without the model', async () => {
+test('a tab opened from a grouped same-site page remains ungrouped without a model', async () => {
   tabStore.clear()
   resetNavigationLinks()
   seedTab({ id: 1, url: 'https://github.com/woolson/tab-assistant', groupId: 7 })
@@ -91,11 +93,12 @@ test('a tab opened from a grouped same-site page joins that group without the mo
   watchNewTabForAiGrouping(host, newTab as unknown as chrome.tabs.Tab)
   await tick(50)
 
-  assert.deepEqual(host.joined, [7])
+  assert.deepEqual(host.joined, [])
   assert.deepEqual(host.created, [])
+  assert.equal(host.domainGrouped, 0)
 })
 
-test('a cross-site link is left to the model instead of being forced into the opener group', async () => {
+test('a cross-site link is not forced into the opener group, and stays ungrouped without a model', async () => {
   tabStore.clear()
   resetNavigationLinks()
   seedTab({ id: 1, url: 'https://github.com/woolson/tab-assistant', groupId: 7 })
@@ -106,12 +109,12 @@ test('a cross-site link is left to the model instead of being forced into the op
   watchNewTabForAiGrouping(host, newTab as unknown as chrome.tabs.Tab)
   await tick(300)
 
-  // 没有设备端模型可用，跨站时既不归组也不新建
   assert.deepEqual(host.joined, [])
   assert.deepEqual(host.created, [])
+  assert.equal(host.domainGrouped, 0)
 })
 
-test('an ungrouped opener keeps the previous behaviour', async () => {
+test('an ungrouped opener does not invent a model group, and the new tab remains ungrouped', async () => {
   tabStore.clear()
   resetNavigationLinks()
   seedTab({ id: 1, url: 'https://github.com/woolson/tab-assistant' })
@@ -124,4 +127,5 @@ test('an ungrouped opener keeps the previous behaviour', async () => {
 
   assert.equal(host.joined.includes(UNGROUPED), false)
   assert.deepEqual(host.created, [])
+  assert.equal(host.domainGrouped, 0)
 })

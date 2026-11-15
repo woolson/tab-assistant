@@ -1,0 +1,133 @@
+.decision-log-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.decision-log-item {
+  padding: 12px 14px;
+  border: 1px solid #e4ebf5;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.decision-log-item + .decision-log-item {
+  margin-top: 10px;
+}
+
+.decision-log-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.decision-log-item time {
+  color: #7b879c;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.decision-log-badge {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef3fb;
+  color: #3d5272;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.decision-log-item.is-join .decision-log-badge,
+.decision-log-item.is-create .decision-log-badge {
+  background: #e7f0ff;
+  color: #1763e8;
+}
+
+.decision-log-item.is-domain .decision-log-badge,
+.decision-log-item.is-rule .decision-log-badge {
+  background: #eef8f1;
+  color: #1d7a45;
+}
+
+.decision-log-item.is-failed .decision-log-badge {
+  background: #ffefef;
+  color: #c43838;
+}
+
+.decision-log-item.is-skipped .decision-log-badge,
+.decision-log-item.is-kept .decision-log-badge {
+  background: #f3f5f8;
+  color: #66758c;
+}
+
+.decision-log-item strong {
+  display: block;
+  overflow: hidden;
+  color: #172033;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.decision-log-url,
+.decision-log-detail {
+  margin: 4px 0 0;
+  color: #66758c;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.decision-log-url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.decision-log-detail {
+  color: #3e4c63;
+}
+
+.is-dark .decision-log-item {
+  background: #172232;
+  border-color: #2c3d55;
+}
+
+.is-dark .decision-log-item time,
+.is-dark .decision-log-url {
+  color: #93a4bd;
+}
+
+.is-dark .decision-log-item strong,
+.is-dark .decision-log-detail {
+  color: #e7eef8;
+}
+
+.is-dark .decision-log-badge,
+.is-dark .decision-log-item.is-skipped .decision-log-badge,
+.is-dark .decision-log-item.is-kept .decision-log-badge {
+  background: #24344a;
+  color: #c5d4e8;
+}
+
+.is-dark .decision-log-item.is-join .decision-log-badge,
+.is-dark .decision-log-item.is-create .decision-log-badge {
+  background: #1c3358;
+  color: #9cc2ff;
+}
+
+.is-dark .decision-log-item.is-domain .decision-log-badge,
+.is-dark .decision-log-item.is-rule .decision-log-badge {
+  background: #173628;
+  color: #8ed7ad;
+}
+
+.is-dark .decision-log-item.is-failed .decision-log-badge {
+  background: #3d2226;
+  color: #ffb4b4;
+}
