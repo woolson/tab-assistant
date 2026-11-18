@@ -39,13 +39,11 @@ let contentReads = 0
   contentReads += 1
   return [{ result: { description: '比较显示器的色彩与价格', headings: ['显示器评测'], excerpt: '适合设计工作的显示器' } }]
 } }
-const systems: string[] = []
 ;(globalThis as any).chrome.permissions = { contains: (_permissions: any, callback: any) => callback(true) }
 ;(globalThis as any).chrome.runtime = {}
 ;(globalThis as any).fetch = async (_url: string, init: any) => {
   const body = JSON.parse(init.body)
   prompts.push(body.messages[1].content)
-  systems.push(body.messages[0].content)
   return { ok: true, json: async () => ({ choices: [{ message: { content: reply } }] }) }
 }
 
@@ -152,7 +150,6 @@ test('task naming uses page context and asks the model even for a grouped same-s
   assert.equal(payload.target.content.description, '比较显示器的色彩与价格')
   assert.equal(payload.source.groupId, 7)
   assert.equal(contentReads, 1)
-  assert.match(systems[systems.length - 1], /Never use a domain/)
   reply = '{"action":"leave"}'
 })
 
@@ -169,4 +166,21 @@ test('content capture off does not read page text and leave never uses domain gr
   assert.equal(contentReads, 0)
   assert.equal(domainCalls, 0)
   assert.equal(JSON.parse(prompts[0]).target.content, undefined)
+})
+
+test('an invented domain group title without a real manual preference is rejected before placement', async t => {
+  tabStore.clear()
+  prompts.length = 0
+  reply = '{"action":"create","title":"example.com"}'
+  t.after(() => { reply = '{"action":"leave"}' })
+  seedTab({ id: 1, url: 'https://example.com/', title: '来源' })
+  const tab = seedTab({ id: 2, url: 'https://example.com/task', title: '显示器评测', openerTabId: 1 })
+  let settled = false
+  const titles: string[] = []
+  const host = { ...createHost(), createGroupForTab: async (_tab: any, title: string) => { titles.push(title) }, releaseInitialDecision: () => { settled = true } }
+  watchNewTabForAiGrouping(host as any, tab)
+  assert.equal(await waitFor(() => settled), true)
+  assert.equal(prompts.length, 1)
+  assert.deepEqual(titles, [])
+  assert.deepEqual(host.joined, [])
 })

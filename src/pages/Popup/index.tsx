@@ -161,6 +161,7 @@ const PopupApp: React.FC<{
 
   useEffect(() => {
     if (previewSidePanelGuide) return;
+    if (new URLSearchParams(window.location.search).get('transfer') === 'import') return;
     if (surface !== 'popup' || typeof chrome === 'undefined' || !chrome.storage?.local) return;
 
     chrome.storage.local.get(StorageKeyEnum.SIDE_PANEL_GUIDE_PENDING)
@@ -220,7 +221,7 @@ const PopupApp: React.FC<{
           {visibleKey === 'logs' && <LazyTabPane><DecisionLog /></LazyTabPane>}
           {visibleKey === 'about' && (
             <LazyTabPane>
-              <About onThemeModeChange={setThemeMode} />
+              <About onThemeModeChange={setThemeMode} surface={surface} />
             </LazyTabPane>
           )}
         </main>

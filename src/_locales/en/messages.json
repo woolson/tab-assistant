@@ -2,6 +2,9 @@
   "extName": {
     "message": "TabAssistant Tab Grouping Helper"
   },
+  "quickSearchCommand": {
+    "message": "Search open tabs, bookmarks and history"
+  },
   "extDescription": {
     "message": "Automatically group tabs by rules"
   }

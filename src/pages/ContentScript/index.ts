@@ -92,7 +92,7 @@ const settingsChanged = (changes: { [key: string]: chrome.storage.StorageChange 
   if (area === 'sync' && changes.TA_SETTING) applySettings(changes.TA_SETTING.newValue)
 }
 chrome.storage.onChanged.addListener(settingsChanged)
-scope.__taCaptureVersion = 'page-changes-v1'
+scope.__taCaptureVersion = 'page-changes-v3'
 scope.__taCaptureDispose = () => {
   setCapture(false)
   disposed = true

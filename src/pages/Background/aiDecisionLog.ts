@@ -1,4 +1,6 @@
 import { Logger } from "./helpers"
+import { cleanTaskText } from '../../common/taskText'
+import type { AiApiDiagnostics } from '../../common/aiApi'
 
 export const AI_DECISION_LOG_KEY = 'TA_AI_DECISION_LOG'
 export const CLEAR_AI_DECISION_LOG_MESSAGE = 'ta:clear-decision-logs'
@@ -7,12 +9,14 @@ const SETTINGS_STORAGE_KEY = 'TA_SETTING'
 
 export type AiDecisionResult = 'join' | 'create' | 'rename' | 'ungrouped' | 'domain' | 'rule' | 'kept' | 'skipped' | 'waiting' | 'failed'
 
-export type AiDecisionVia = 'opener' | 'model' | 'search' | 'fallback' | 'domain' | 'rule' | 'none'
+export type AiDecisionVia = 'opener' | 'model' | 'preference' | 'search' | 'fallback' | 'domain' | 'rule' | 'none'
 
 export type AiModelStatus =
   | 'not-configured'
   | 'permission'
   | 'answered'
+  | 'unverified'
+  | 'preferences-changed'
   | 'timeout'
   | 'queue-timeout'
   | 'unavailable'
@@ -29,15 +33,30 @@ export interface AiDecisionLogEntry {
   title: string
   result: AiDecisionResult
   via: AiDecisionVia
-  trigger?: 'page-update'
+  trigger?: 'page-update' | 'full-regroup'
   modelAction?: 'join' | 'create' | 'leave' | 'rename'
   modelStatus?: AiModelStatus
   groupId?: number
   groupTitle?: string
+  reason?: string
   error?: string
+  request?: AiApiDiagnostics
 }
 
 export type NewAiDecisionLogEntry = Omit<AiDecisionLogEntry, 'id' | 'at'>
+
+export type AiDecisionDisplayResult = AiDecisionResult | 'timeout' | 'unverified' | 'model-kept'
+
+/** Preserve the actual placement result, but make failed/declined decisions visible. */
+export function aiDecisionDisplayResult(entry: Pick<AiDecisionLogEntry, 'result' | 'modelStatus' | 'modelAction'>): AiDecisionDisplayResult {
+  if (entry.result === 'kept' || entry.result === 'ungrouped' || entry.result === 'failed') {
+    if (entry.modelStatus === 'timeout') return 'timeout'
+    if (entry.modelStatus === 'unverified') return 'unverified'
+    if (['error', 'permission', 'not-configured', 'queue-timeout'].includes(entry.modelStatus || '')) return 'failed'
+    if (entry.modelStatus === 'answered' && entry.modelAction === 'leave') return 'model-kept'
+  }
+  return entry.result
+}
 
 let writeQueue: Promise<void> = Promise.resolve()
 
@@ -103,14 +122,15 @@ function createEntry(entry: NewAiDecisionLogEntry): AiDecisionLogEntry {
     id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     at: Date.now(),
     url: entry.url || '',
-    title: entry.title || '',
+    title: cleanTaskText(entry.title || ''),
     error: clip(entry.error),
     groupTitle: clip(entry.groupTitle),
+    reason: clip(entry.reason),
   }
 }
 
 const DECISION_RESULTS = new Set<AiDecisionResult>(['rename', 'ungrouped', 'join', 'create', 'domain', 'rule', 'kept', 'skipped', 'waiting', 'failed'])
-const DECISION_VIAS = new Set<AiDecisionVia>(['opener', 'model', 'search', 'fallback', 'domain', 'rule', 'none'])
+const DECISION_VIAS = new Set<AiDecisionVia>(['opener', 'model', 'preference', 'search', 'fallback', 'domain', 'rule', 'none'])
 
 function isAiDecisionLogEntry(value: unknown): value is AiDecisionLogEntry {
   if (!value || typeof value !== 'object') return false

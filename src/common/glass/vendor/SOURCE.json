@@ -1,0 +1,11 @@
+{
+  "repository": "https://github.com/nordify/css-liquid-glass",
+  "license": "MIT",
+  "retrieved": "2026-11-18",
+  "files": {
+    "maps.ts": "4a5553b5f88cd60fb1a2e064cb8a2c4444b3de1839de3a859d87c4a113745745",
+    "liquid-glass.ts": "cc114fac99aa1bb398f87adad60343ee75c9038777d75c4892dc43d278cfded0",
+    "liquid-glass.css": "97276f1caaf010112b8b6e0d06e5081c75ba1fd4a405d18d6fc23c07c99df887",
+    "LICENSE": "714deec409fcc4c08ec413bd7e21184a8764eb663a933fabb98602db5c75b5b0"
+  }
+}

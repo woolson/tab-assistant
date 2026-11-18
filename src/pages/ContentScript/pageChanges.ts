@@ -28,10 +28,10 @@ export function watchPageContentChanges(notify: (url: string, signature: string)
   const observer = new MutationObserver(records => {
     if (records.some(record => {
       const element = record.target instanceof Element ? record.target : record.target.parentElement
-      return !element?.closest('nav, aside, footer, form, input, textarea, [contenteditable], [role="navigation"], .comments, #comments')
+      return !element?.closest('nav, aside, footer, form, input, textarea, [contenteditable]:not([contenteditable="false"]):not([aria-readonly="true"]), [role="navigation"], .comments, #comments')
     })) schedule()
   })
-  observer.observe(document, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['content', 'hidden', 'aria-hidden'] })
+  observer.observe(document, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['content', 'hidden', 'aria-hidden', 'aria-selected', 'aria-current', 'class', 'style'] })
   window.addEventListener('popstate', schedule)
   window.addEventListener('hashchange', schedule)
   return () => {

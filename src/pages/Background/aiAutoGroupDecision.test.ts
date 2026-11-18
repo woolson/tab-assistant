@@ -62,6 +62,15 @@ test('group titles stay short', () => {
   assert.equal(normalizeGroupTitle(12), undefined)
 })
 
+test('prompt samples and generated group titles remove invisible prefixes before clipping', () => {
+  const prefix = '\u200b\u202c\ufeff\u200d\u200c\u2063\u2062'.repeat(10)
+  const title = '家空间高校战役N5TE铺设指引 for淘闪 · 钉钉文档'
+  const groups = compactGroupsForPrompt([{ id: 7, title: '高校业务', tabs: [{ url: 'https://docs.example/1', title: prefix + title }] }], 'https://other.example/')
+  assert.equal(groups[0].tabs[0].title, title)
+  assert.equal(normalizeGroupTitle(prefix + '弹外数据抽取'), '弹外数据抽取')
+  assert.equal(normalizeGroupTitle(prefix), undefined)
+})
+
 test('fallback joins the closest existing registrable domain and otherwise does nothing', () => {
   const groups = [
     {
@@ -91,7 +100,7 @@ test('fallback joins the closest existing registrable domain and otherwise does 
   ], 'https://github.com/new'), 4)
 })
 
-test('snapshots omit the new tab and ungrouped tabs, and the prompt keeps the closest groups', () => {
+test('snapshots omit the new tab and ungrouped tabs, and the prompt keeps the group limit', () => {
   const snapshots = buildGroupSnapshots(
     [{ id: 1, title: 'News' }, { id: 2, title: '' }],
     [
@@ -104,14 +113,32 @@ test('snapshots omit the new tab and ungrouped tabs, and the prompt keeps the cl
   )
 
   assert.deepEqual(snapshots, [
-    { id: 1, title: 'News', tabs: [{ url: 'https://news.ycombinator.com/', title: 'HN' }] },
-    { id: 2, title: '', tabs: [{ url: 'https://github.com/', title: 'GitHub' }, { url: 'chrome://extensions/', title: 'Extensions' }] },
+    { id: 1, title: 'News', tabs: [{ id: 11, url: 'https://news.ycombinator.com/', title: 'HN' }] },
+    { id: 2, title: '', tabs: [{ id: 13, url: 'https://github.com/', title: 'GitHub' }, { id: 12, url: 'chrome://extensions/', title: 'Extensions' }] },
   ])
 
   const compact = compactGroupsForPrompt(snapshots, 'https://github.com/features', 1)
   assert.equal(compact.length, 1)
   assert.equal(compact[0].id, 1)
   assert.equal(compact[0].tabs[0].url, 'https://news.ycombinator.com/')
+})
+
+test('task-bearing pages remain visible after generic portals and the prompt includes six samples', () => {
+  const tabs = Array.from({ length: 8 }, (_, index) => ({
+    id: index, index, groupId: 7, url: `https://alidocs.dingtalk.com/i/${index}`,
+    title: index < 2 ? '文档 · 钉钉文档' : `碰一下销售任务 ${index} · 钉钉文档`,
+  }))
+  const snapshots = buildGroupSnapshots([{ id: 7, title: '跟进碰一下销售' }], tabs)
+  const compact = compactGroupsForPrompt(snapshots, 'https://alidocs.dingtalk.com/i/new')
+  assert.equal(compact[0].tabs.length, 6)
+  assert.equal(compact[0].tabs[0].title, '碰一下销售任务 2 · 钉钉文档')
+  assert.equal(compact[0].tabs[5].title, '碰一下销售任务 7 · 钉钉文档')
+})
+
+test('generic platform names are not valid AI task titles', () => {
+  for (const title of ['钉钉文档', '文档 · 钉钉文档', 'Notion', 'Home']) {
+    assert.equal(parseAiGroupDecision({ action: 'create', title }, new Set()), undefined)
+  }
 })
 
 

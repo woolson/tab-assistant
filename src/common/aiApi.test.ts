@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
-  AI_API_PRESETS, AiApiError, aiApiEndpoint, aiApiOrigin, defaultAiApiConfig,
+  AI_API_PRESETS, AiApiError, aiApiEndpoint, aiApiOrigin, aiApiRequestTimeoutSeconds, defaultAiApiConfig,
   normalizeAiApiConfig, requestAiApiPermission, requestAiCompletion, testAiApiConnection,
 } from './aiApi.ts'
 import type { AiApiConfig } from './aiApi.ts'
+import { installAiTokenUsageRecorder, type AiTokenUsageEvent } from './aiTokenUsage.ts'
 
 function fixture(t: any, allowed = true) {
   const originalFetch = globalThis.fetch
@@ -27,6 +28,15 @@ function fixture(t: any, allowed = true) {
 }
 
 const configured = (provider: AiApiConfig['provider'] = 'deepseek') => ({ ...defaultAiApiConfig(provider), apiKey: 'test-secret-key' })
+
+function shortStreamTimers(t: any) {
+  const timeout = globalThis.setTimeout
+  const interval = globalThis.setInterval
+  ;(globalThis as any).setTimeout = (callback: any, ms: number, ...args: any[]) => timeout(callback, ms === 25_000 ? 10 : ms === 60_000 ? 120 : ms, ...args)
+  ;(globalThis as any).setInterval = (callback: any, ms: number, ...args: any[]) => interval(callback, ms === 20_000 ? 10 : ms, ...args)
+  t.after(() => { globalThis.setTimeout = timeout; globalThis.setInterval = interval })
+  return { sleep: (ms: number) => new Promise(resolve => timeout(resolve, ms)), timeout }
+}
 
 test('presets require only a key and preserve explicit model/endpoint overrides', () => {
   for (const preset of AI_API_PRESETS) {
@@ -202,4 +212,134 @@ test('connection test validates a minimal response without browsing data', async
   assert.equal(f.calls[0].body.messages[1].content, 'Test connection. Return {"ok":true}.')
   f.respond(async () => Response.json({ choices: [{ message: { content: 'hello' } }] }))
   await assert.rejects(testAiApiConnection(configured()), (error: unknown) => error instanceof AiApiError && error.code === 'invalid-response')
+})
+
+test('completion and connection test record reported usage against the request configuration', async t => {
+  const f = fixture(t)
+  const events: AiTokenUsageEvent[] = []
+  installAiTokenUsageRecorder(async event => { events.push({ ...event }) })
+  t.after(() => installAiTokenUsageRecorder(undefined))
+  f.respond(async () => Response.json({ model: 'canonical-model-snapshot', choices: [{ message: { content: '{"ok":true}' } }], usage: { prompt_tokens: 12, completion_tokens: 3 } }))
+  const config = configured('openai')
+  await requestAiCompletion(config, 'private instructions', 'private page content')
+  await testAiApiConnection(config)
+  assert.equal(events.length, 2)
+  assert.equal(events[0].provider, 'openai')
+  assert.equal(events[0].model, config.model)
+  assert.equal(events[0].inputTokens, 12)
+  assert.equal(events[0].outputTokens, 3)
+  assert.notEqual(events[0].requestId, events[1].requestId)
+  assert.equal(JSON.stringify(events).includes('private'), false)
+  assert.equal(JSON.stringify(events).includes(config.apiKey), false)
+})
+
+test('responses with unusable content still retain usage; network failures remain unknown', async t => {
+  const f = fixture(t)
+  const events: AiTokenUsageEvent[] = []
+  installAiTokenUsageRecorder(async event => { events.push({ ...event }) })
+  t.after(() => installAiTokenUsageRecorder(undefined))
+  f.respond(async () => Response.json({ usage: { prompt_tokens: 20, completion_tokens: 0 } }))
+  await assert.rejects(requestAiCompletion(configured(), '', ''))
+  assert.equal(events[0].inputTokens, 20)
+  assert.equal(events[0].outputTokens, 0)
+  f.respond(async () => { throw new Error('offline') })
+  await assert.rejects(requestAiCompletion(configured(), '', ''))
+  assert.equal(events[1].inputTokens, undefined)
+  assert.equal(events[1].outputTokens, undefined)
+})
+
+test('preflight failures do not report usage and recording failures cannot break completion', async t => {
+  fixture(t, false)
+  const events: AiTokenUsageEvent[] = []
+  installAiTokenUsageRecorder(async event => { events.push(event) })
+  t.after(() => installAiTokenUsageRecorder(undefined))
+  await assert.rejects(requestAiCompletion(defaultAiApiConfig(), '', ''))
+  await assert.rejects(requestAiCompletion(configured(), '', ''))
+  assert.equal(events.length, 0)
+  ;(globalThis as any).chrome.permissions.contains = (_permissions: any, callback: any) => callback(true)
+  installAiTokenUsageRecorder(async () => { throw new Error('disk unavailable') })
+  assert.equal(await requestAiCompletion(configured(), '', ''), '{"action":"leave"}')
+})
+
+test('OpenAI separates first response and completion deadlines without changing existing credentials or models', () => {
+  const config = normalizeAiApiConfig({ ...configured('openai'), timeoutSeconds: 25, completionTimeoutSeconds: undefined, model: 'my-saved-model', baseUrl: 'https://gateway.example/v1' })
+  assert.equal(config.timeoutSeconds, 25)
+  assert.equal(config.completionTimeoutSeconds, 60)
+  assert.equal(aiApiRequestTimeoutSeconds(config), 60)
+  assert.equal(config.model, 'my-saved-model')
+  assert.equal(config.baseUrl, 'https://gateway.example/v1')
+  assert.equal(normalizeAiApiConfig({ ...config, completionTimeoutSeconds: 1000 }).completionTimeoutSeconds, 120)
+  assert.equal(normalizeAiApiConfig({ ...config, completionTimeoutSeconds: 5 }).completionTimeoutSeconds, 25)
+  assert.equal(aiApiRequestTimeoutSeconds(configured('deepseek')), 25)
+})
+
+test('OpenAI accepts a complete streamed decision after the first response deadline and records final usage once', async t => {
+  const f = fixture(t)
+  const timers = shortStreamTimers(t)
+  let heartbeats = 0
+  ;(globalThis as any).chrome.runtime.getPlatformInfo = (callback: any) => { heartbeats++; callback({}) }
+  const events: AiTokenUsageEvent[] = []
+  installAiTokenUsageRecorder(async event => { events.push({ ...event }) })
+  t.after(() => installAiTokenUsageRecorder(undefined))
+  f.respond(async () => new Response(new ReadableStream({ start(controller) {
+    timers.timeout(() => {
+      controller.enqueue(new TextEncoder().encode('data: {"choices":[{"delta":{"content":"{\\"action\\":\\"leave\\"}"},"finish_reason":"stop"}]}\n\ndata: {"choices":[],"usage":{"prompt_tokens":33,"completion_tokens":7}}\n\ndata: [DONE]\n\n'))
+      controller.close()
+    }, 40)
+  } }), { headers: { 'Content-Type': 'text/event-stream; charset=utf-8' } }))
+  assert.equal(await requestAiCompletion(configured('openai'), '', ''), '{"action":"leave"}')
+  assert.equal(f.calls.length, 1)
+  assert.equal(f.calls[0].body.stream, true)
+  assert.equal(f.calls[0].body.stream_options.include_usage, true)
+  assert.equal(events.length, 1)
+  assert.equal(events[0].inputTokens, 33)
+  assert.equal(events[0].outputTokens, 7)
+  assert.ok(heartbeats > 0)
+  const after = heartbeats
+  await timers.sleep(25)
+  assert.equal(heartbeats, after)
+})
+
+test('OpenAI still cancels when no response headers arrive and does not retry', async t => {
+  const f = fixture(t)
+  shortStreamTimers(t)
+  f.respond((_url, init) => new Promise((_resolve, reject) => { init.signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true }) }))
+  await assert.rejects(requestAiCompletion(configured('openai'), '', ''), (error: unknown) => {
+    assert.ok(error instanceof AiApiError)
+    assert.equal(error.code, 'timeout')
+    assert.equal(error.diagnostics?.phase, 'first-response')
+    assert.equal(error.diagnostics?.firstResponseMs, undefined)
+    return true
+  })
+  assert.equal(f.calls.length, 1)
+})
+
+test('OpenAI cancels an idle completion stream at its full-result deadline', async t => {
+  const f = fixture(t)
+  shortStreamTimers(t)
+  let cancelled = false
+  f.respond(async () => new Response(new ReadableStream({ cancel() { cancelled = true } }), { headers: { 'Content-Type': 'text/event-stream' } }))
+  await assert.rejects(requestAiCompletion(configured('openai'), '', ''), (error: unknown) => {
+    assert.ok(error instanceof AiApiError)
+    assert.equal(error.code, 'timeout')
+    assert.equal(error.diagnostics?.phase, 'completion')
+    assert.equal(typeof error.diagnostics?.firstResponseMs, 'number')
+    return true
+  })
+  assert.equal(cancelled, true)
+  assert.equal(f.calls.length, 1)
+})
+
+test('request diagnostics report actual model, input size and elapsed phases without prompt/key data', async t => {
+  fixture(t)
+  const observed: any[] = []
+  await requestAiCompletion(configured('openai'), 'secret-system', 'secret-page', undefined, value => observed.push(value))
+  assert.equal(observed[0].phase, 'first-response')
+  assert.equal(observed[1].phase, 'completion')
+  assert.equal(observed[observed.length - 1].phase, 'complete')
+  assert.equal(observed[0].inputChars, 'secret-system'.length + 'secret-page'.length)
+  assert.equal(observed[0].model, configured('openai').model)
+  assert.equal(observed[0].provider, 'openai')
+  assert.equal(JSON.stringify(observed).includes('secret-system'), false)
+  assert.equal(JSON.stringify(observed).includes(configured('openai').apiKey), false)
 })

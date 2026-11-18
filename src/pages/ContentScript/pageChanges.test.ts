@@ -14,11 +14,13 @@ function page(t: any) {
     constructor(ignored = false) { this.ignored = ignored }
     closest() { return this.ignored ? {} : null }
   }
-  const paragraph = { get innerText() { return prose }, closest: () => null }
-  const root = { querySelectorAll: (selector: string) => selector === 'h1, h2' ? [] : [paragraph] }
+  const paragraph = { get nodeValue() { return prose }, parentElement: new Element() }
+  const root = { querySelectorAll: () => [] }
   ;(globalThis as any).Element = Element
   ;(globalThis as any).window = { addEventListener: (event: string, callback: () => void) => listeners.set(event, callback), removeEventListener: (event: string) => listeners.delete(event) }
-  ;(globalThis as any).document = { title: '商品', body: root, querySelector: (selector: string) => selector.startsWith('meta') ? null : root }
+  ;(globalThis as any).document = { title: '商品', body: root, querySelector: (selector: string) => selector.startsWith('meta') ? null : root, querySelectorAll: () => [],
+    createTreeWalker: () => { let read = false; return { nextNode: () => { if (read) return null; read = true; return paragraph } } },
+  }
   ;(globalThis as any).location = { href: 'https://example.com/page' }
   ;(globalThis as any).MutationObserver = class {
     constructor(callback: (records: any[]) => void) { change = callback }

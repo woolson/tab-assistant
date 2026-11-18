@@ -38,6 +38,7 @@ import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { CSS } from '@dnd-kit/utilities';
 import PageHeader from '../PageHeader';
 import AiSettings from './AiSettings';
+import AiRegroupAllButton from './AiRegroupAllButton';
 import './style.less';
 import { reloadConfig } from '@/common';
 import { StorageKeyEnum } from '@/common/const';
@@ -368,7 +369,7 @@ const Rules: React.FC = () => {
 
   return (
     <section className={`popup-screen rules-screen grouping-mode-${aiMode ? 'ai' : 'custom'}`} aria-busy={modeLoading}>
-      <PageHeader title={t('tabRules')} subtitle={t('rulesDescription')} actions={aiMode ? undefined : actions} />
+      <PageHeader title={t('tabRules')} subtitle={t('rulesDescription')} actions={aiMode ? <AiRegroupAllButton active={!modeLoading && !modeSaving} /> : actions} />
 
       <div className="grouping-mode-bar">
         <div className="grouping-mode-copy">

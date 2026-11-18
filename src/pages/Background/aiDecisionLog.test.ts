@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { AI_DECISION_LOG_KEY, clearAiDecisionLog, readAiDecisionLog, recordAiDecision } from './aiDecisionLog.ts'
+import { AI_DECISION_LOG_KEY, aiDecisionDisplayResult, clearAiDecisionLog, readAiDecisionLog, recordAiDecision } from './aiDecisionLog.ts'
 
 test('decision log ignores a missing storage area and rejects corrupt entries', () => {
   recordAiDecision({
@@ -29,6 +29,16 @@ test('search-topic decisions remain visible without changing the recorded model 
     groupId: 7, groupTitle: 'Research S16',
   }
   assert.deepEqual(readAiDecisionLog([entry]), [entry])
+})
+
+test('preserved placements distinguish API timeouts, rejected task evidence and deliberate model choices', () => {
+  assert.equal(aiDecisionDisplayResult({ result: 'ungrouped', modelStatus: 'timeout' }), 'timeout')
+  assert.equal(aiDecisionDisplayResult({ result: 'kept', modelStatus: 'timeout' }), 'timeout')
+  assert.equal(aiDecisionDisplayResult({ result: 'kept', modelStatus: 'error' }), 'failed')
+  assert.equal(aiDecisionDisplayResult({ result: 'ungrouped', modelStatus: 'unverified', modelAction: 'join' }), 'unverified')
+  assert.equal(aiDecisionDisplayResult({ result: 'kept', modelStatus: 'answered', modelAction: 'leave' }), 'model-kept')
+  assert.equal(aiDecisionDisplayResult({ result: 'create', modelStatus: 'answered', modelAction: 'leave' }), 'create')
+  assert.equal(aiDecisionDisplayResult({ result: 'waiting', modelStatus: 'not-asked' }), 'waiting')
 })
 
 function loggingFixture(t: any, enabled?: boolean) {
@@ -64,6 +74,14 @@ test('logging defaults off and only an explicit enable records decisions', async
   await recordAiDecision(decision('https://example.com/disabled'))
   assert.equal(f.entries().length, 1)
   assert.equal(f.writes(), 1)
+})
+
+test('task-match rejections keep the proposed action and a bounded explanation in the log', async t => {
+  const f = loggingFixture(t, true)
+  await recordAiDecision({ ...decision(), result: 'ungrouped', modelAction: 'join', modelStatus: 'unverified', reason: '只有平台相同'.repeat(50) })
+  assert.equal(f.entries()[0].modelAction, 'join')
+  assert.equal(f.entries()[0].modelStatus, 'unverified')
+  assert.equal(f.entries()[0].reason.length, 180)
 })
 
 test('turning logging off while a write is waiting drops the pending entry', async t => {

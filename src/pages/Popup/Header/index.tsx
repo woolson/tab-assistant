@@ -6,7 +6,10 @@ import {
   InfoCircleOutlined,
   InsertRowRightOutlined,
   SettingOutlined,
+  SearchOutlined,
 } from '@ant-design/icons';
+import { message } from 'antd';
+import { QUICK_SEARCH_TOGGLE, requestQuickSearch } from '@/common/quickSearch';
 import Logo from '@/assets/img/icon.svg';
 import SidebarTexture from '@/assets/img/ui/sidebar-aurora.png';
 import SidePanelTexture from '@/assets/img/ui/sidepanel-aurora.jpg';
@@ -28,6 +31,11 @@ export const Header: React.FC<HeaderProps> = ({
   showDecisionLog = false,
 }) => {
   const { t } = useI18n();
+  const quickSearch = () => {
+    void requestQuickSearch(QUICK_SEARCH_TOGGLE).then(response => {
+      if (!response.ok) message.error(t('quickSearchUnavailable'));
+    }).catch(() => message.error(t('quickSearchUnavailable')));
+  };
   const openSidePanel = () => {
     void chrome.sidePanel
       .open({ windowId: chrome.windows.WINDOW_ID_CURRENT })
@@ -69,6 +77,9 @@ export const Header: React.FC<HeaderProps> = ({
             <img src={Logo} alt="" className="sidepanel-brand-logo" />
             <span>TabAssistant</span>
           </div>
+          <button type="button" className="sidepanel-quick-search" onClick={quickSearch} title={t('quickSearchTitle')} aria-label={t('quickSearchTitle')}>
+            <SearchOutlined />
+          </button>
         </div>
 
         {navigation}

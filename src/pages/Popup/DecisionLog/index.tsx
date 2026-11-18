@@ -3,17 +3,22 @@ import { Button, Empty, message } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
 import PageHeader from '../PageHeader';
 import { useI18n, type TranslationKey } from '@/common/i18n';
+import { cleanTaskText } from '@/common/taskText';
 import {
   AI_DECISION_LOG_KEY,
   requestClearAiDecisionLog,
   readAiDecisionLog,
+  aiDecisionDisplayResult,
   type AiDecisionLogEntry,
-  type AiDecisionResult,
+  type AiDecisionDisplayResult,
   type AiModelStatus,
 } from '@/pages/Background/aiDecisionLog';
 import './style.less';
 
-const RESULT_LABEL: Record<AiDecisionResult, TranslationKey> = {
+const RESULT_LABEL: Record<AiDecisionDisplayResult, TranslationKey> = {
+  timeout: 'aiLogResultTimeout',
+  unverified: 'aiLogResultUnverified',
+  'model-kept': 'aiLogResultModelKept',
   rename: 'aiLogResultRename',
   ungrouped: 'aiLogResultUngrouped',
   join: 'aiLogResultJoin',
@@ -28,6 +33,8 @@ const RESULT_LABEL: Record<AiDecisionResult, TranslationKey> = {
 
 const STATUS_LABEL: Partial<Record<AiModelStatus, TranslationKey>> = {
   'not-configured': 'aiLogStatus_notConfigured',
+  unverified: 'aiLogStatus_unverified',
+  'preferences-changed': 'aiLogStatus_preferencesChanged',
   permission: 'aiLogStatus_permission',
   timeout: 'aiLogStatus_timeout',
   'queue-timeout': 'aiLogStatus_queueTimeout',
@@ -99,16 +106,21 @@ const DecisionLog: React.FC = () => {
       <div className="decision-log-list">
         {!entries.length && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('aiLogEmpty')} />}
         {entries.map(entry => (
-          <article key={entry.id} className={`decision-log-item is-${entry.result}`}>
+          <article key={entry.id} className={`decision-log-item is-${aiDecisionDisplayResult(entry)}`}>
             <div className="decision-log-item-top">
               <time dateTime={new Date(entry.at).toISOString()}>
                 {formatTime(entry.at, language)}
               </time>
-              <span className="decision-log-badge">{t(RESULT_LABEL[entry.result])}</span>
+              <span className="decision-log-badge">{t(RESULT_LABEL[aiDecisionDisplayResult(entry)])}</span>
             </div>
-            <strong>{entry.title || entry.url || t('aiLogUnnamed')}</strong>
+            <strong>{cleanTaskText(entry.title) || entry.url || t('aiLogUnnamed')}</strong>
             {entry.url && <p className="decision-log-url" title={entry.url}>{entry.url}</p>}
             <p className="decision-log-detail">{describeDecision(entry, t)}</p>
+            {entry.request && <p className="decision-log-detail">{t('aiLogRequestDetails', {
+              provider: entry.request.provider, model: entry.request.model,
+              chars: entry.request.inputChars, seconds: (entry.request.elapsedMs / 1000).toFixed(1),
+            })}{typeof entry.request.firstResponseMs === 'number' && ` · ${t('aiLogFirstResponseDetails', { seconds: (entry.request.firstResponseMs / 1000).toFixed(1) })}`}</p>}
+            {typeof entry.reason === 'string' && entry.reason && <p className="decision-log-detail">{t('aiLogReason', { reason: entry.reason })}</p>}
           </article>
         ))}
       </div>
@@ -123,6 +135,9 @@ function describeDecision(
   const label = entry.groupTitle || (typeof entry.groupId === 'number' ? `#${entry.groupId}` : '');
   const group = label ? t('aiLogNamed', { group: label }) : t('aiLogUnnamed');
   const result = (() => {
+    if (entry.via === 'preference' && entry.result === 'join') return t('aiLogJoinPreference', { group });
+    if (entry.via === 'preference' && entry.result === 'create') return t('aiLogCreatePreference', { group });
+    if (entry.via === 'preference' && entry.result === 'ungrouped') return t('aiLogUngroupedPreference');
     if (entry.via === 'search' && entry.result === 'join') return t('aiLogJoinSearch', { group });
     if (entry.via === 'search' && entry.result === 'create') return t('aiLogCreateSearch', { group });
     if (entry.result === 'join' && entry.via === 'opener') return t('aiLogJoinOpener', { group });
@@ -143,11 +158,13 @@ function describeDecision(
   if (entry.via !== 'search' && (entry.modelAction === 'leave' || (entry.modelAction && entry.result !== 'join' && entry.result !== 'create'))) {
     extra.push(t('aiLogModelSaid', { action: t(MODEL_ACTION_LABEL[entry.modelAction]) }));
   }
-  const statusKey = entry.modelStatus ? STATUS_LABEL[entry.modelStatus] : undefined;
+  const statusKey = entry.modelStatus === 'timeout' && entry.request
+    ? entry.request.phase === 'first-response' ? 'aiLogStatus_firstResponseTimeout' : 'aiLogStatus_completionTimeout'
+    : entry.modelStatus ? STATUS_LABEL[entry.modelStatus] : undefined;
   if (statusKey && entry.modelStatus !== 'answered' && entry.modelStatus !== 'not-asked') {
-    extra.push(t(statusKey, { error: entry.error || '' }));
+    extra.push(t(statusKey, { error: entry.error || '', seconds: ((entry.request?.elapsedMs || 0) / 1000).toFixed(1) }));
   }
-  return [entry.trigger === 'page-update' ? t('aiLogPageUpdated') : '', result, ...extra].filter(Boolean).join(' ');
+  return [entry.trigger === 'full-regroup' ? t('aiLogFullRegroup') : entry.trigger === 'page-update' ? t('aiLogPageUpdated') : '', result, ...extra].filter(Boolean).join(' ');
 }
 
 function formatTime(timestamp: number, language: string): string {

@@ -1,3 +1,7 @@
+import { parseTaskMatch, specificTaskText, type TaskMatchEvidence } from './taskEvidence'
+import type { PageContent } from '../../common/pageContent'
+import { cleanTaskText, clipTaskText } from '../../common/taskText'
+
 /** 未分组标签的 groupId，与 chrome.tabGroups.TAB_GROUP_ID_NONE 一致。 */
 export const UNGROUPED_GROUP_ID = -1
 
@@ -26,12 +30,15 @@ export interface AiGroupDecision {
   action: AiGroupAction
   groupId?: number
   title?: string
+  taskMatch?: TaskMatchEvidence
+  reason?: string
+  manualPreferenceId?: string
 }
 
 export interface GroupSnapshot {
   id: number
   title: string
-  tabs: Array<{ url: string; title: string }>
+  tabs: Array<{ id?: number; url: string; title: string; content?: PageContent }>
 }
 
 export interface SnapshotGroup {
@@ -92,11 +99,15 @@ export function registrableDomain(hostname: string): string {
 
 export function normalizeGroupTitle(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined
-  const collapsed = value.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim()
+  const collapsed = cleanTaskText(value)
   if (!collapsed) return undefined
   const title = clipText(collapsed, AI_GROUP_TITLE_MAX).trim()
   if (!title || !/[0-9A-Za-z\u00C0-\uFFFF]/.test(title)) return undefined
   return title
+}
+
+export function isSpecificAiGroupTitle(title: string): boolean {
+  return Boolean(specificTaskText(title)) && !/^(?:https?:\/\/|www\.)/i.test(title) && !/^(?:[a-z0-9-]+\.)+[a-z]{2,}\/?$/i.test(title)
 }
 
 export function parseAiGroupDecision(raw: unknown, validGroupIds: ReadonlySet<number>, currentGroupId?: number): AiGroupDecision | undefined {
@@ -107,18 +118,26 @@ export function parseAiGroupDecision(raw: unknown, validGroupIds: ReadonlySet<nu
       : undefined
   if (!record) return undefined
 
+  const reason = typeof record.reason === 'string'
+    ? clipText(record.reason.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim(), 180)
+    : ''
+  const manualPreferenceId = typeof record.manualPreferenceId === 'string' && /^pref-[a-z0-9_-]{1,74}$/i.test(record.manualPreferenceId) ? record.manualPreferenceId : undefined
+  const explanation = { ...(reason ? { reason } : {}), ...(manualPreferenceId ? { manualPreferenceId } : {}) }
   const action = typeof record.action === 'string' ? record.action.trim().toLowerCase() : ''
-  if (action === 'leave') return { action: 'leave' }
+  if (action === 'leave') return { action: 'leave', ...explanation }
   if (action === 'join') {
     const groupId = normalizeGroupId(record.groupId)
     if (groupId === undefined || !validGroupIds.has(groupId)) return undefined
-    return { action: 'join', groupId }
+    const taskMatch = parseTaskMatch(record.taskMatch)
+    return { action: 'join', groupId, ...(taskMatch ? { taskMatch } : {}), ...explanation }
   }
   if (action === 'create' || action === 'rename') {
     if (action === 'rename' && (currentGroupId === undefined || !validGroupIds.has(currentGroupId))) return undefined
     const title = normalizeGroupTitle(record.title)
-    if (!title || /^(?:https?:\/\/|www\.)/i.test(title) || /^(?:[a-z0-9-]+\.)+[a-z]{2,}\/?$/i.test(title)) return undefined
-    return action === 'rename' ? { action: 'rename', title, groupId: currentGroupId } : { action: 'create', title }
+    // 用户明确选择过的组名可以被恢复；调用方必须验证真实的偏好 ID 和适用范围。
+    if (!title || !isSpecificAiGroupTitle(title) && !(action === 'create' && manualPreferenceId)) return undefined
+    const taskMatch = parseTaskMatch(record.taskMatch)
+    return action === 'rename' ? { action: 'rename', title, groupId: currentGroupId, ...explanation } : { action: 'create', title, ...(taskMatch ? { taskMatch } : {}), ...explanation }
   }
   return undefined
 }
@@ -151,10 +170,13 @@ export function buildGroupSnapshots(
         else withoutDomain.push(tab)
       })
 
+      const specific = withDomain.filter(tab => specificTaskText(tab.title || ''))
+      const generic = withDomain.filter(tab => !specificTaskText(tab.title || ''))
       return {
         id: group.id,
         title: group.title || '',
-        tabs: withDomain.concat(withoutDomain).slice(0, GROUP_SAMPLE_LIMIT).map(tab => ({
+        tabs: specific.concat(generic, withoutDomain).slice(0, GROUP_SAMPLE_LIMIT).map(tab => ({
+          ...(tab.id !== undefined ? { id: tab.id } : {}),
           url: readRealUrl(tab) || '',
           title: (tab.title || '').trim(),
         })).filter(tab => tab.url),
@@ -165,10 +187,11 @@ export function buildGroupSnapshots(
 export function compactGroupsForPrompt(groups: GroupSnapshot[], _targetUrl: string, limit = 40): GroupSnapshot[] {
   return groups.slice(0, limit).map(group => ({
     id: group.id,
-    title: clipText(group.title, 80),
-    tabs: group.tabs.slice(0, 2).map(tab => ({
+    title: clipTaskText(group.title, 80),
+    tabs: group.tabs.slice(0, GROUP_SAMPLE_LIMIT).map(tab => ({
       url: clipText(tab.url, 180),
-      title: clipText(tab.title, 80),
+      title: clipTaskText(tab.title, 80),
+      ...(tab.content ? { content: tab.content } : {}),
     })),
   }))
 }

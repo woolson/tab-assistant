@@ -1,4 +1,5 @@
 import type { AiApiConfig } from "../../common/aiApi"
+import type { QuickSearchMaterial } from '../../common/quickSearchAppearance'
 export type GroupColorEnum = chrome.tabGroups.ColorEnum
 export type Language = 'zh-CN' | 'en-US'
 export type ThemeMode = 'system' | 'light' | 'dark'
@@ -68,6 +69,10 @@ export interface TabAssistantConfig {
      * 弹窗界面主题
      */
     theme?: ThemeMode
+    /** 快捷搜索材质及玻璃背景参数。 */
+    quickSearchMaterial?: QuickSearchMaterial
+    quickSearchTransparency?: number
+    quickSearchBlur?: number
     /**
      * 点击浏览器工具栏图标时打开的界面
      */

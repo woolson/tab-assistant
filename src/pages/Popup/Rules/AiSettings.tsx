@@ -6,6 +6,8 @@ import { EventNameEnum, StorageKeyEnum } from '@/common/const';
 import { queryClickSourcePermission, requestClickSourcePermission } from '@/common/permissions';
 import { type TranslationKey, useI18n } from '@/common/i18n';
 import AiModelSelect from './AiModelSelect';
+import GroupingPreferences from './GroupingPreferences';
+import AiTokenUsage from './AiTokenUsage';
 import './AiSettings.less';
 
 type AiSettingsForm = { aiApi: AiApiConfig; rememberClickSource: boolean };
@@ -30,6 +32,9 @@ const AiSettings: React.FC<{ active: boolean }> = ({ active }) => {
   const loadError = useRef(t('aiApiLoadError'));
   const [form] = useForm<AiSettingsForm>();
   const provider = Form.useWatch(['aiApi', 'provider'], form) || 'deepseek';
+  const protocol = Form.useWatch(['aiApi', 'protocol'], form) || 'openai';
+  const responseTimeout = Form.useWatch(['aiApi', 'timeoutSeconds'], form) || 25;
+  const streaming = provider === 'openai' && protocol === 'openai';
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testingApi, setTestingApi] = useState(false);
@@ -120,6 +125,7 @@ const AiSettings: React.FC<{ active: boolean }> = ({ active }) => {
       onValuesChange={changed => { if (changed.aiApi) testController.current?.abort(); }}>
       <div className="ai-config-scroll">
         <p className="ai-config-description">{t('aiAutoGroupEnableSettingExtra')}</p>
+        {active && <GroupingPreferences />}
         <Form.Item label={t('aiApiProvider')} name={['aiApi', 'provider']}>
           <Select options={[...AI_API_PRESETS.map(item => ({ value: item.provider, label: item.label })), { value: 'custom', label: t('aiApiCustom') }]}
             onChange={(value: AiApiProvider) => { testController.current?.abort(); form.setFieldValue('aiApi', defaultAiApiConfig(value)); }} />
@@ -143,9 +149,12 @@ const AiSettings: React.FC<{ active: boolean }> = ({ active }) => {
             } }]}>
             <Input placeholder="https://api.example.com/v1" autoComplete="off" />
           </Form.Item>
-          <Form.Item label={t('aiApiTimeout')} name={['aiApi', 'timeoutSeconds']}>
+          <Form.Item label={t(streaming ? 'aiApiFirstResponseTimeout' : 'aiApiTimeout')} name={['aiApi', 'timeoutSeconds']}>
             <InputNumber min={5} max={25} precision={0} addonAfter={t('aiApiSeconds')} />
           </Form.Item>
+          {streaming && <Form.Item label={t('aiApiCompletionTimeout')} name={['aiApi', 'completionTimeoutSeconds']} extra={t('aiApiCompletionTimeoutExtra')}>
+            <InputNumber min={responseTimeout} max={120} precision={0} addonAfter={t('aiApiSeconds')} />
+          </Form.Item>}
         </details>
         <div className="ai-api-test"><Button loading={testingApi} onClick={() => void testConnection()}>{t('aiApiTest')}</Button></div>
 
@@ -170,6 +179,7 @@ const AiSettings: React.FC<{ active: boolean }> = ({ active }) => {
           />
         </Form.Item>
 
+        {active && <AiTokenUsage />}
       </div>
       <div className="ai-config-footer">
         <span>{t('aiApiLocalHint')}</span>

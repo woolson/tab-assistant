@@ -1,4 +1,11 @@
 import { AI_API_CONFIG_KEY, normalizeAiApiConfig, type AiApiConfig } from "../../common/aiApi"
+import { START_AI_REGROUP_MESSAGE, AI_REGROUP_STATUS_MESSAGE, type AiRegroupError } from "../../common/aiRegroup"
+import { CLEAR_GROUPING_PREFERENCES_MESSAGE } from "../../common/groupingPreferences"
+import { RECORD_AI_TOKEN_USAGE_MESSAGE, installAiTokenUsageRecorder, readAiTokenUsageEvent } from "../../common/aiTokenUsage"
+import { recordAiTokenUsage } from "./aiTokenUsage"
+import { createPageContextCache, readPageContext } from './pageContext'
+import { setupQuickSearch } from './quickSearch'
+import { isQuickSearchUrl } from '../../common/quickSearch'
 /**
  * Features
  * 1. 分组排序 ✅
@@ -15,6 +22,9 @@ import { EventNameEnum, StorageKeyEnum } from "../../common/const"
 import { queryClickSourcePermission } from "../../common/permissions"
 import { AI_MANUAL_EDIT_COOLDOWN_MS, scheduleTabReevaluation, forgetTabReevaluation, continueNewTabForAiGrouping, watchNewTabForAiGrouping } from "./aiAutoGroup"
 import { CLEAR_AI_DECISION_LOG_MESSAGE, clearAiDecisionLog, recordAiDecision } from "./aiDecisionLog"
+import { specificTaskText } from "./taskEvidence"
+import { getAiRegroupJob, recoverAiRegroupJob, startAiRegroupAll } from "./aiRegroupAll"
+import { clearGroupingPreferences, consumeAutomaticGroupChange, forgetGroupingPreferenceTab, groupTabsAutomatically, recordManualGroupingChoice } from "./groupingPreferences"
 import { isGroupedId, normalizeGroupTitle, readRealUrl } from "./aiAutoGroupDecision"
 import { reloadAutoClose, setupAutoClose } from "./autoClose"
 import {
@@ -62,12 +72,17 @@ class TabAssistant {
   private browserMutationTimers: Array<ReturnType<typeof setTimeout>> = []
   /** 正在等待地址或处理决策的标签，合并同一次导航的多个更新事件。 */
   private readonly aiDecisionStarted = new Set<number>()
+  private readonly fullRegroupTabIds = new Set<number>()
+  private fullRegroupPageContext?: ReturnType<typeof createPageContextCache>
   /** 已处理的地址；未分组标签换了访问内容后，仍然可以再次询问模型。 */
-  private readonly aiDecisionPages = new Map<number, { url: string; searchQuery?: string }>()
+  private readonly aiDecisionPages = new Map<number, { url: string; searchQuery?: string; taskTitle: string }>()
+  private readonly aiContentSignatures = new Map<number, { url: string; signature: string }>()
+  private readonly pendingContentDecisions = new Map<number, string>()
   private readonly manualHoldUntil = new Map<number, number>()
   private readonly automatedGroupTitles = new Map<number, string>()
   private readonly manuallyNamedGroups = new Set<number>()
   private readonly groupTitles = new Map<number, string | undefined>()
+  private readonly tabGroupIds = new Map<number, number>()
   private suppressGroupReorderUntil = 0
 
   constructor(config: TabAssistantConfig) {
@@ -89,6 +104,8 @@ class TabAssistant {
   /** 配置重载时停止旧实例；浏览器事件由顶层监听统一转发给新实例。 */
   dispose() {
     this.disposed = true
+    this.fullRegroupPageContext?.clear()
+    this.fullRegroupPageContext = undefined
     this.browserMutationTimers.forEach(timer => clearTimeout(timer))
     this.browserMutationTimers = []
   }
@@ -139,6 +156,7 @@ class TabAssistant {
 
       /** 当前窗口所有的标签 */
       const tabs = await chrome.tabs.query({ windowId: window.id })
+      tabs.forEach(tab => { if (tab.id !== undefined) this.tabGroupIds.set(tab.id, tab.groupId ?? -1) })
       const tabsById = new Map(tabs
         .filter((tab): tab is chrome.tabs.Tab & { id: number } => typeof tab.id === 'number')
         .map(tab => [tab.id, tab]))
@@ -312,7 +330,7 @@ class TabAssistant {
       try {
         const browserGroup = await chrome.tabGroups.get(groupId)
         if (browserGroup.windowId === params.windowId) {
-          return chrome.tabs.group({
+          return groupTabsAutomatically({
             groupId,
             tabIds: params.tabIds
           })
@@ -327,7 +345,7 @@ class TabAssistant {
       }
     }
 
-    return chrome.tabs.group({
+    return groupTabsAutomatically({
       tabIds: params.tabIds,
       createProperties: {
         windowId: params.windowId
@@ -343,7 +361,7 @@ class TabAssistant {
       ? await chrome.tabs.get(tabInfoOrTabId)
       : tabInfoOrTabId
     // 固定标签不参与分组：加入分组会使其被取消固定
-    if (!tabInfo.url || !tabInfo.id || tabInfo.pinned) return;
+    if (!tabInfo.url || !tabInfo.id || tabInfo.pinned || isQuickSearchUrl(tabInfo.url)) return;
     // AI 模式只有显式规则和本地文件使用这条路径，任何更新都不能按域名兜底。
     if (this.setting.aiAutoGroupEnabled && !this.shouldUseExistingGrouping(tabInfo.url)) return
 
@@ -480,13 +498,45 @@ class TabAssistant {
   }
 
   async onPageContentChanged(tabId: number, url: string, signature: string) {
+    this.fullRegroupPageContext?.invalidate(tabId)
+    if (this.fullRegroupTabIds.has(tabId)) return
     if (this.disposed || !this.setting.aiAutoGroupEnabled || !this.canReadPageContent() || !await queryClickSourcePermission()) return
     const tab = await chrome.tabs.get(tabId).catch(() => undefined)
-    if (!tab || readRealUrl(tab) !== url) return
-    scheduleTabReevaluation(this, tab, signature)
+    if (!tab || tab.pinned || this.hasManualTabHold(tabId) || readRealUrl(tab) !== url) return
+    const previous = this.aiContentSignatures.get(tabId)
+    if (previous?.url === url && previous.signature === signature) return
+    this.aiContentSignatures.set(tabId, { url, signature })
+    if (isGroupedId(tab.groupId)) { scheduleTabReevaluation(this, tab, signature); return }
+    if (this.aiDecisionStarted.has(tabId)) { this.pendingContentDecisions.set(tabId, url); return }
+    this.aiDecisionPages.delete(tabId)
+    this.startUngroupedTabDecision(tab)
   }
 
   getAiApiConfig() { return this.aiApi }
+
+  isAiGroupingEnabled() { return this.setting.aiAutoGroupEnabled === true }
+
+  prepareFullRegroup(tabIds: number[], startedAt: number) {
+    this.fullRegroupPageContext = createPageContextCache()
+    tabIds.forEach(tabId => {
+      this.fullRegroupTabIds.add(tabId)
+      const holdUntil = this.manualHoldUntil.get(tabId)
+      if (!holdUntil || holdUntil - AI_MANUAL_EDIT_COOLDOWN_MS <= startedAt) this.manualHoldUntil.delete(tabId)
+      forgetTabReevaluation(this, tabId)
+    })
+  }
+
+  finishFullRegroup() {
+    this.fullRegroupTabIds.clear()
+    this.fullRegroupPageContext?.clear()
+    this.fullRegroupPageContext = undefined
+  }
+
+  readAiPageContext(tabId: number, url: string, signal: AbortSignal) {
+    return this.fullRegroupPageContext ? this.fullRegroupPageContext.read(tabId, url, signal) : readPageContext(tabId, url, signal)
+  }
+
+  invalidateAiPageContext(tabId: number) { this.fullRegroupPageContext?.invalidate(tabId) }
 
   canReadPageContent() {
     return this.setting.rememberClickSource === true
@@ -526,19 +576,25 @@ class TabAssistant {
   releaseInitialDecision(tabId: number, decidedUrl?: string, decidedTitle?: string) {
     this.aiDecisionStarted.delete(tabId)
     if (this.disposed) return
-    if (decidedUrl) this.aiDecisionPages.set(tabId, { url: decidedUrl, searchQuery: readSearchIntent(decidedUrl, decidedTitle)?.query })
+    if (decidedUrl) this.aiDecisionPages.set(tabId, { url: decidedUrl, searchQuery: readSearchIntent(decidedUrl, decidedTitle)?.query, taskTitle: specificTaskText(decidedTitle || '') })
     // 导航可能在等待地址结束或 API 请求期间发生。重新读取，补上尚未处理的地址。
     void chrome.tabs.get(tabId).then(tab => {
+      const pending = this.pendingContentDecisions.get(tabId)
+      this.pendingContentDecisions.delete(tabId)
+      if (pending && pending === readRealUrl(tab)) {
+        this.aiDecisionPages.delete(tabId)
+        if (isGroupedId(tab.groupId)) { scheduleTabReevaluation(this, tab); return }
+      }
       if (readRealUrl(tab)) this.startUngroupedTabDecision(tab)
     }).catch(() => this.aiDecisionPages.delete(tabId))
   }
 
   private startUngroupedTabDecision(tab: chrome.tabs.Tab, waitForUrl = false) {
     if (this.disposed || !this.setting.aiAutoGroupEnabled || !tab.id || tab.pinned ||
-      isGroupedId(tab.groupId) || this.hasManualTabHold(tab.id) || this.aiDecisionStarted.has(tab.id)) return
+      isGroupedId(tab.groupId) || this.hasManualTabHold(tab.id) || this.aiDecisionStarted.has(tab.id) || this.fullRegroupTabIds.has(tab.id)) return
     const url = readRealUrl(tab)
     const decided = this.aiDecisionPages.get(tab.id)
-    if (url && decided?.url === url && decided.searchQuery === readSearchIntent(url, tab.title)?.query) return
+    if (url && decided?.url === url && decided.searchQuery === readSearchIntent(url, tab.title)?.query && decided.taskTitle === specificTaskText(tab.title || '')) return
     if (!url && !waitForUrl) return
     this.aiDecisionStarted.add(tab.id)
     if (waitForUrl) watchNewTabForAiGrouping(this, tab)
@@ -585,7 +641,7 @@ class TabAssistant {
     try {
       await this.trackBrowserMutation(async () => {
         this.removeTabFromGroups(refreshed.id as number, refreshed.windowId)
-        const nextGroupId = await chrome.tabs.group({
+        const nextGroupId = await groupTabsAutomatically({
           groupId,
           tabIds: refreshed.id as number,
         })
@@ -621,7 +677,7 @@ class TabAssistant {
         groupTitle: title,
       })
       if (typeof groupInfo.id === 'number') {
-        const nextGroupId = await chrome.tabs.group({
+        const nextGroupId = await groupTabsAutomatically({
           groupId: groupInfo.id,
           tabIds: current.id,
         })
@@ -676,6 +732,8 @@ class TabAssistant {
    * 标签添加时进行移动
    */
   async onTabCreated(tab: chrome.tabs.Tab) {
+    if (isQuickSearchUrl(tab.url || tab.pendingUrl)) return
+    if (tab.id !== undefined && !this.tabGroupIds.has(tab.id)) this.tabGroupIds.set(tab.id, tab.groupId ?? -1)
     if (tab.id && this.setting.aiAutoGroupEnabled && !tab.pinned) {
       if (typeof tab.groupId === 'number' && tab.groupId !== chrome.tabGroups.TAB_GROUP_ID_NONE) {
         Logger.log('新标签已在分组中，保持不动', tab.id)
@@ -720,6 +778,8 @@ class TabAssistant {
   }
 
   async onTabAdded(tabId: number, changeInfo: chrome.tabs.TabChangeInfo) {
+    if (changeInfo.status || changeInfo.title !== undefined || changeInfo.url) this.fullRegroupPageContext?.invalidate(tabId)
+    if (this.fullRegroupTabIds.has(tabId)) return
     if (this.setting.aiAutoGroupEnabled) {
       if (!changeInfo.status && changeInfo.title === undefined && !changeInfo.url) return
       const tab = await chrome.tabs.get(tabId).catch(() => undefined)
@@ -766,9 +826,14 @@ class TabAssistant {
 
   /** 标签移除时更新数据 */
   async onTabRemoved(tabId: number, removeInfo: chrome.tabs.TabRemoveInfo) {
+    this.fullRegroupPageContext?.invalidate(tabId)
+    this.tabGroupIds.delete(tabId)
+    forgetGroupingPreferenceTab(tabId)
     forgetTabReevaluation(this, tabId)
     this.aiDecisionStarted.delete(tabId)
     this.aiDecisionPages.delete(tabId)
+    this.aiContentSignatures.delete(tabId)
+    this.pendingContentDecisions.delete(tabId)
     this.manualHoldUntil.delete(tabId)
     forgetNavigationLink(tabId)
     forgetClickGesture(tabId)
@@ -870,6 +935,20 @@ class TabAssistant {
     })
   }
 
+  noteTabGroupChange(tabId: number, groupId: number, tab?: chrome.tabs.Tab, wokeFromEvent = false) {
+    const previous = this.tabGroupIds.get(tabId)
+    this.tabGroupIds.set(tabId, groupId)
+    if (this.disposed || !this.setting.aiAutoGroupEnabled || previous === groupId && !wokeFromEvent) return
+    const fromTitle = previous !== undefined && previous !== -1 ? this.groupTitles.get(previous) : undefined
+    const manual = () => {
+      if (this.disposed) return
+      this.manualHoldUntil.set(tabId, Date.now() + AI_MANUAL_EDIT_COOLDOWN_MS)
+      forgetTabReevaluation(this, tabId)
+      recordManualGroupingChoice(tabId, groupId, fromTitle, tab)
+    }
+    if (!consumeAutomaticGroupChange(tabId, groupId, manual)) manual()
+  }
+
   noteManualTabEdit(tabId: number) {
     if (!this.setting.aiAutoGroupEnabled || this.browserMutationDepth > 0) return
     this.manualHoldUntil.set(tabId, Date.now() + AI_MANUAL_EDIT_COOLDOWN_MS)
@@ -891,6 +970,9 @@ class TabAssistant {
     if (!this.setting.aiAutoGroupEnabled || automated || !seen || previous === group.title) return
     this.manuallyNamedGroups.add(group.id)
     void chrome.storage.local.set({ [`TA_AI_MANUAL_TITLE_${group.id}`]: group.title || '' }).catch(() => {})
+    if (group.title?.trim()) void chrome.tabs.query({ groupId: group.id }).then(tabs => {
+      tabs.forEach(tab => { if (tab.id !== undefined) recordManualGroupingChoice(tab.id, group.id, undefined, tab) })
+    }).catch(() => {})
     this.suppressGroupReorderUntil = Date.now() + AI_MANUAL_EDIT_COOLDOWN_MS
     Logger.log('检测到手动重命名分组，短时间内不再调整分组顺序', group.id)
   }
@@ -950,10 +1032,11 @@ chrome.tabs.onCreated.addListener(tab => {
     if (tab.id !== undefined) pendingCreatedTabIds.delete(tab.id)
   })
 })
-chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   // 手动操作要在事件发生时判断，异步转发会把扩展自己的移动误判为用户操作。
-  if (changeInfo.groupId !== undefined && changeInfo.groupId !== chrome.tabGroups.TAB_GROUP_ID_NONE) {
-    assistant?.noteManualTabEdit(tabId)
+  if (changeInfo.groupId !== undefined) {
+    if (assistant) assistant.noteTabGroupChange(tabId, changeInfo.groupId, tab)
+    else void withAssistant(instance => instance.noteTabGroupChange(tabId, changeInfo.groupId as number, tab, true))
   }
   void withAssistant(instance => instance.onTabAdded(tabId, changeInfo))
 })
@@ -1013,6 +1096,7 @@ function main() {
       ])
 
     const local = await chrome.storage.local.get(AI_API_CONFIG_KEY)
+    await recoverAiRegroupJob()
     await configureToolbarEntry(storage[StorageKeyEnum.SETTING])
     await reloadAutoClose().catch(error => Logger.log('初始化自动关闭闲置标签页失败', error))
 
@@ -1035,6 +1119,8 @@ function main() {
   return nextReload
 };
 
+installAiTokenUsageRecorder(recordAiTokenUsage)
+setupQuickSearch()
 setupAutoClose();
 
 void main();
@@ -1084,7 +1170,7 @@ async function syncClickGestureCapture(enabled: boolean) {
   await Promise.allSettled(tabs.filter(tab => tab.id !== undefined).map(async tab => {
     const tabId = tab.id as number
     try {
-      const result = await scripting.executeScript({ target: { tabId }, func: () => (globalThis as { __taCaptureVersion?: string }).__taCaptureVersion === 'page-changes-v1' })
+      const result = await scripting.executeScript({ target: { tabId }, func: () => (globalThis as { __taCaptureVersion?: string }).__taCaptureVersion === 'page-changes-v3' })
       if (result[0]?.result) return
       await scripting.executeScript({ target: { tabId, allFrames: true }, files: ['contentScript.bundle.js'] })
     } catch { /* Browser-protected or recently closed pages are skipped. */ }
@@ -1092,6 +1178,34 @@ async function syncClickGestureCapture(enabled: boolean) {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === RECORD_AI_TOKEN_USAGE_MESSAGE) {
+    if (sender.tab || sender.id && sender.id !== chrome.runtime.id) return false
+    const event = readAiTokenUsageEvent(message.event)
+    if (!event) { sendResponse({ ok: false }); return false }
+    void recordAiTokenUsage(event).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }))
+    return true
+  }
+  if (message?.type === CLEAR_GROUPING_PREFERENCES_MESSAGE) {
+    if (sender.tab) return false
+    void clearGroupingPreferences().then(() => sendResponse({ ok: true }), () => sendResponse({ ok: false }))
+    return true
+  }
+
+  if (message?.type === START_AI_REGROUP_MESSAGE || message?.type === AI_REGROUP_STATUS_MESSAGE) {
+    // 全量操作只供扩展界面使用，页面内容采集脚本不能触发付费批处理。
+    if (sender.tab) return false
+    void reloadAssistantTask.then(async () => {
+      if (message.type === AI_REGROUP_STATUS_MESSAGE) return { ok: true, job: await getAiRegroupJob() }
+      if (!assistant) throw new Error('unexpected')
+      return { ok: true, job: await startAiRegroupAll(assistant) }
+    }).then(sendResponse, error => {
+      const allowed: AiRegroupError[] = ['disabled', 'not-configured', 'permission', 'invalid-url']
+      const code = error instanceof Error ? error.message : ''
+      sendResponse({ ok: false, error: allowed.includes(code as AiRegroupError) ? code : 'unexpected' })
+    })
+    return true
+  }
+
   if (message?.type === CLEAR_AI_DECISION_LOG_MESSAGE) {
     void clearAiDecisionLog().then(() => sendResponse({ ok: true }), () => sendResponse({ ok: false }))
     return true
@@ -1120,6 +1234,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   void main()
     .then(() => sendResponse(EventNameEnum.RELOAD_SUCC))
-    .catch(error => Logger.log('重新加载扩展配置失败', error))
+    .catch(error => { Logger.log('重新加载扩展配置失败', error); sendResponse({ ok: false, error: 'reload-failed' }) })
   return true;
 })

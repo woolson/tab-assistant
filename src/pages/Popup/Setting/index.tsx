@@ -7,6 +7,8 @@ import { DEFAULT_AUTO_CLOSE_MINUTES, EventNameEnum, StorageKeyEnum } from '@/com
 import { TabAssistantConfig, ThemeMode, ToolbarEntryMode } from '@/pages/Background/types';
 import { languageOptions, TranslationKey, useI18n } from '@/common/i18n';
 import { requestClearAiDecisionLog } from '@/pages/Background/aiDecisionLog';
+import QuickSearchSettings from './QuickSearchSettings';
+import { quickSearchAppearance } from '@/common/quickSearchAppearance';
 import './style.less';
 
 const canUseStorage = () => typeof chrome !== 'undefined' && Boolean(chrome.storage?.sync);
@@ -63,30 +65,31 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
     const loadSettings = async () => {
       if (!canUseStorage()) {
         const previewSettings = {
+          ...quickSearchAppearance(),
           language,
           theme: themeMode,
           toolbarEntry: 'popup' as const,
           remove3w: false,
-          removeKeywordList: ['www'],
+          removeKeywordList: ['www.'],
           autoCloseEnabled: false,
           autoCloseMinutes: DEFAULT_AUTO_CLOSE_MINUTES,
         };
         form.setFieldsValue(previewSettings);
-        setDefaultOptions([{ value: 'www', label: 'www' }]);
+        setDefaultOptions([{ value: 'www.', label: 'www.' }]);
         return;
       }
 
       const response = await chrome.storage.sync.get([StorageKeyEnum.SETTING]);
       const settings = response?.[StorageKeyEnum.SETTING] || {};
-      const removeKeywordList = settings.removeKeywordList || ['www'];
+      const removeKeywordList = settings.removeKeywordList || ['www.'];
       setDefaultOptions(removeKeywordList.map((value: string) => ({ value, label: value })));
       form.setFieldsValue({
         language,
-        theme: themeMode,
         toolbarEntry: 'popup',
         autoCloseEnabled: false,
         autoCloseMinutes: DEFAULT_AUTO_CLOSE_MINUTES,
         ...settings,
+        ...quickSearchAppearance(settings),
         removeKeywordList,
       });
     };
@@ -166,6 +169,8 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
               </Form.Item>
             </div>
           </section>
+
+          <QuickSearchSettings />
 
           <section className="settings-section">
             <h2><span />{t('groupNamingSection')}</h2>
