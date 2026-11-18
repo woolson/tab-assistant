@@ -2,6 +2,38 @@
   overflow: hidden;
 }
 
+.quick-search-settings > p { margin: 0 0 10px; color: #6b7890; font-size: 12px; line-height: 1.7; }
+.quick-search-setting-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.quick-search-setting-actions kbd { display: inline-block; padding: 7px 10px; border: .5px solid #dce4ef; border-radius: 7px; color: #405275; background: #f5f8fd; font: 12px -apple-system, BlinkMacSystemFont, sans-serif; }
+.is-dark .quick-search-settings > p { color: #a8b7cf; }
+.is-dark .quick-search-setting-actions kbd { color: #cfddf3; border-color: #3b4a62; background: #24344a; }
+.quick-search-settings .quick-search-appearance-save-hint { margin: 10px 0 0; font-size: 11px; }
+.quick-search-material-preview { position: relative; display: grid; place-items: center; height: 154px; margin: 4px 0 18px; overflow: hidden; border-radius: 18px; background: linear-gradient(130deg, #8ebde0, #c8c0e6 48%, #ecbcb2); }
+.quick-search-preview-orb { position: absolute; width: 150px; height: 150px; border-radius: 50%; filter: blur(3px); }
+.quick-search-preview-orb.is-blue { top: -53px; left: 12%; background: linear-gradient(45deg, #72b8ed, #6f88d1); }
+.quick-search-preview-orb.is-pink { bottom: -70px; right: 6%; width: 180px; height: 180px; background: linear-gradient(45deg, #df81a8, #eec788); }
+.quick-search-preview-glass { position: relative; width: 79%; max-width: 350px; padding: 14px; border: 0; border-radius: var(--qs-corner-radius, 38px); overflow: visible; color: #24314b; background: transparent; }
+.quick-search-preview-input { display: flex; align-items: center; gap: 9px; padding: 0 2px 12px; font-size: 13px; }
+.quick-search-preview-input > span:nth-child(2) { flex: 1; }
+.quick-search-preview-input kbd { padding: 2px 4px; border: .5px solid rgba(83,100,135,.18); border-radius: 5px; font-size: 9px; opacity: .6; }
+.quick-search-preview-result { display: flex; align-items: center; gap: 9px; min-height: 34px; padding: 7px 9px; border: .5px solid rgba(255,255,255,.45); border-radius: 11px; background: rgba(255,255,255,.3); box-shadow: inset 0 .5px 0 rgba(255,255,255,.4); }
+.quick-search-preview-result > span:first-child { width: 17px; height: 17px; border-radius: 5px; background: linear-gradient(135deg, #76a9ed, #7a86dd); }
+.quick-search-preview-result > span:nth-child(2) { flex: 1; max-width: 140px; height: 6px; border-radius: 4px; background: rgba(58,76,113,.28); }
+.quick-search-preview-result > span:last-child { margin-left: auto; opacity: .5; }
+.is-dark .quick-search-material-preview { background: linear-gradient(130deg, #203a56, #3c3e62 50%, #644a5e); }
+.is-dark .quick-search-preview-glass { color: #eef3ff; }
+.is-dark .quick-search-preview-result { background: rgba(224,232,255,.1); border-color: rgba(255,255,255,.2); }
+.is-dark .quick-search-preview-result > span:nth-child(2) { background: rgba(218,229,250,.35); }
+@supports (corner-shape: squircle) {
+  :where(.quick-search-material-preview, .quick-search-preview-glass, .quick-search-preview-glass *, .quick-search-setting-actions kbd),
+  :where(.quick-search-preview-glass, .quick-search-preview-glass *)::before,
+  :where(.quick-search-preview-glass, .quick-search-preview-glass *)::after { corner-shape: squircle; }
+  .quick-search-material-preview { border-radius: var(--qs-corner-radius, 38px); }
+  .quick-search-preview-result { border-radius: 16px; }
+}
+.quick-search-preview-surface { position: absolute; inset: 0; border-radius: inherit; corner-shape: inherit; }
+.quick-search-preview-input, .quick-search-preview-result { position: relative; z-index: 3; }
+
 .tab-assistant-setting .page-header {
   min-height: 57px;
   margin-bottom: 7px;
@@ -85,10 +117,6 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
-}
-
-.toolbar-entry-setting {
-  grid-column: 1 / -1;
 }
 
 .toolbar-entry-setting.is-guide-target {
@@ -281,4 +309,10 @@
 .surface-sidepanel .settings-footer .ant-btn {
   flex: none;
   width: auto;
+}
+.decision-log-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
 }

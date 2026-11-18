@@ -4,6 +4,8 @@ const surface: ExtensionSurface = document.documentElement.dataset.surface === '
   ? 'sidepanel'
   : 'popup';
 
+if (new URLSearchParams(window.location.search).get('transfer') === 'import') document.documentElement.dataset.transfer = 'import';
+
 const loadApplication = () => {
   const mount = () => {
     import('./index')

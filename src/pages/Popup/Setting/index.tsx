@@ -1,10 +1,14 @@
 import React, { memo, useCallback, useEffect, useState } from 'react';
 import { Button, Form, InputNumber, message, Segmented, Select, Switch } from 'antd';
 import { useForm } from 'antd/es/form/Form';
+import { DeleteOutlined } from '@ant-design/icons';
 import PageHeader from '../PageHeader';
 import { DEFAULT_AUTO_CLOSE_MINUTES, EventNameEnum, StorageKeyEnum } from '@/common/const';
 import { TabAssistantConfig, ThemeMode, ToolbarEntryMode } from '@/pages/Background/types';
 import { languageOptions, TranslationKey, useI18n } from '@/common/i18n';
+import { requestClearAiDecisionLog } from '@/pages/Background/aiDecisionLog';
+import QuickSearchSettings from './QuickSearchSettings';
+import { quickSearchAppearance } from '@/common/quickSearchAppearance';
 import './style.less';
 
 const canUseStorage = () => typeof chrome !== 'undefined' && Boolean(chrome.storage?.sync);
@@ -22,13 +26,31 @@ interface SettingProps {
   themeMode: ThemeMode;
   onThemeModeChange: (themeMode: ThemeMode) => void;
   highlightToolbarEntry?: boolean;
+  decisionLogEnabled?: boolean;
+  onDecisionLogEnabledChange: (enabled: boolean) => Promise<void>;
 }
 
-export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highlightToolbarEntry = false }) => {
+export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highlightToolbarEntry = false, decisionLogEnabled, onDecisionLogEnabledChange }) => {
   const [form] = useForm<TabAssistantConfig['setting']>();
   const [defaultOptions, setDefaultOptions] = useState<Array<{ value: string; label: string }>>([]);
   const { language, setLanguage, t } = useI18n();
   const autoCloseEnabled = Form.useWatch('autoCloseEnabled', form);
+  const [savingDecisionLog, setSavingDecisionLog] = useState(false);
+  const [clearingDecisionLog, setClearingDecisionLog] = useState(false);
+
+  const toggleDecisionLog = async (enabled: boolean) => {
+    setSavingDecisionLog(true);
+    try { await onDecisionLogEnabledChange(enabled); }
+    catch { message.error(t('aiApiSaveError')); }
+    finally { setSavingDecisionLog(false); }
+  };
+
+  const clearDecisionLog = async () => {
+    setClearingDecisionLog(true);
+    try { await requestClearAiDecisionLog(); message.success(t('decisionLogCleared')); }
+    catch { message.error(t('decisionLogClearError')); }
+    finally { setClearingDecisionLog(false); }
+  };
 
   useEffect(() => {
     if (!highlightToolbarEntry) return;
@@ -43,30 +65,31 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
     const loadSettings = async () => {
       if (!canUseStorage()) {
         const previewSettings = {
+          ...quickSearchAppearance(),
           language,
           theme: themeMode,
           toolbarEntry: 'popup' as const,
           remove3w: false,
-          removeKeywordList: ['www'],
+          removeKeywordList: ['www.'],
           autoCloseEnabled: false,
           autoCloseMinutes: DEFAULT_AUTO_CLOSE_MINUTES,
         };
         form.setFieldsValue(previewSettings);
-        setDefaultOptions([{ value: 'www', label: 'www' }]);
+        setDefaultOptions([{ value: 'www.', label: 'www.' }]);
         return;
       }
 
       const response = await chrome.storage.sync.get([StorageKeyEnum.SETTING]);
       const settings = response?.[StorageKeyEnum.SETTING] || {};
-      const removeKeywordList = settings.removeKeywordList || ['www'];
+      const removeKeywordList = settings.removeKeywordList || ['www.'];
       setDefaultOptions(removeKeywordList.map((value: string) => ({ value, label: value })));
       form.setFieldsValue({
         language,
-        theme: themeMode,
         toolbarEntry: 'popup',
         autoCloseEnabled: false,
         autoCloseMinutes: DEFAULT_AUTO_CLOSE_MINUTES,
         ...settings,
+        ...quickSearchAppearance(settings),
         removeKeywordList,
       });
     };
@@ -75,18 +98,21 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
   }, [form, language, themeMode]);
 
   const onFinish = useCallback(async (formValue: TabAssistantConfig['setting']) => {
-    const nextSetting = {
-      ...formValue,
-      autoCloseMinutes: formValue.autoCloseMinutes || DEFAULT_AUTO_CLOSE_MINUTES,
-    };
-    if (canUseStorage()) await chrome.storage.sync.set({ [StorageKeyEnum.SETTING]: nextSetting });
-    if (formValue.language) setLanguage(formValue.language);
-    onThemeModeChange(formValue.theme || 'system');
-    message.success(t('settingsSaved'));
-
-    if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
-      chrome.runtime.sendMessage(EventNameEnum.RELOAD_RULE, () => undefined);
-    }
+    try {
+      if (canUseStorage()) {
+        const current = await chrome.storage.sync.get(StorageKeyEnum.SETTING);
+        await chrome.storage.sync.set({ [StorageKeyEnum.SETTING]: {
+          ...current[StorageKeyEnum.SETTING], ...formValue,
+          autoCloseMinutes: formValue.autoCloseMinutes || DEFAULT_AUTO_CLOSE_MINUTES,
+        } });
+      }
+      if (formValue.language) setLanguage(formValue.language);
+      onThemeModeChange(formValue.theme || 'system');
+      if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
+        chrome.runtime.sendMessage(EventNameEnum.RELOAD_RULE, () => void chrome.runtime.lastError);
+      }
+      message.success(t('settingsSaved'));
+    } catch { message.error(t('aiApiSaveError')); }
   }, [onThemeModeChange, setLanguage, t]);
 
   return (
@@ -144,6 +170,8 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
             </div>
           </section>
 
+          <QuickSearchSettings />
+
           <section className="settings-section">
             <h2><span />{t('groupNamingSection')}</h2>
 
@@ -159,6 +187,24 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
                 placeholder={t('ignoreWordsPlaceholder')}
                 options={defaultOptions}
               />
+            </Form.Item>
+          </section>
+
+          <section className="settings-section decision-log-setting">
+            <h2><span />{t('decisionLogSection')}</h2>
+            <Form.Item label={t('decisionLogEnableSetting')} extra={t('decisionLogEnableSettingExtra')}>
+              <div className="decision-log-controls">
+                <Switch
+                  aria-label={t('decisionLogEnableSetting')}
+                  checked={decisionLogEnabled === true}
+                  disabled={decisionLogEnabled === undefined || savingDecisionLog}
+                  loading={savingDecisionLog}
+                  onChange={enabled => void toggleDecisionLog(enabled)}
+                />
+                <Button icon={<DeleteOutlined />} loading={clearingDecisionLog} onClick={() => void clearDecisionLog()}>
+                  {t('decisionLogClearExisting')}
+                </Button>
+              </div>
             </Form.Item>
           </section>
 
@@ -193,7 +239,7 @@ export const Setting = memo<SettingProps>(({ themeMode, onThemeModeChange, highl
 
         <div className="settings-footer">
           <span>{t('settingsSyncHint')}</span>
-          <Button htmlType="submit" type="primary">{t('saveSettings')}</Button>
+          <Button htmlType="submit" type="primary" disabled={savingDecisionLog}>{t('saveSettings')}</Button>
         </div>
       </Form>
     </section>

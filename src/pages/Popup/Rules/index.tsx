@@ -7,6 +7,7 @@ import {
   message,
   Popconfirm,
   Radio,
+  Segmented,
   Select,
   Space,
   Tooltip,
@@ -14,6 +15,8 @@ import {
 import { useForm } from 'antd/lib/form/Form';
 import { v4 as uuid } from 'uuid';
 import {
+  AppstoreOutlined,
+  RobotOutlined,
   DeleteOutlined,
   EditOutlined,
   HolderOutlined,
@@ -34,6 +37,8 @@ import type { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { CSS } from '@dnd-kit/utilities';
 import PageHeader from '../PageHeader';
+import AiSettings from './AiSettings';
+import AiRegroupAllButton from './AiRegroupAllButton';
 import './style.less';
 import { reloadConfig } from '@/common';
 import { StorageKeyEnum } from '@/common/const';
@@ -189,6 +194,9 @@ const Rules: React.FC = () => {
   const [dataSource, setDataSource] = useState<RuleItem[]>([]);
   const [editData, setEditData] = useState<Partial<RuleItem>>();
   const [form] = useForm<RuleItem>();
+  const [aiMode, setAiMode] = useState(false);
+  const [modeLoading, setModeLoading] = useState(true);
+  const [modeSaving, setModeSaving] = useState(false);
 
   const colorOptions = useMemo(
     () => COLOR_KEYS.map(value => ({
@@ -310,6 +318,41 @@ const Rules: React.FC = () => {
     reloadRules();
   }, [reloadRules]);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!canUseStorage()) { setModeLoading(false); return; }
+    void chrome.storage.sync.get(StorageKeyEnum.SETTING)
+      .then(result => { if (!cancelled) setAiMode(Boolean(result[StorageKeyEnum.SETTING]?.aiAutoGroupEnabled)); })
+      .catch(() => { if (!cancelled) message.error(t('aiApiLoadError')); })
+      .finally(() => { if (!cancelled) setModeLoading(false); });
+    const onChange = (changes: { [key: string]: chrome.storage.StorageChange }, area: string) => {
+      if (area === 'sync' && changes[StorageKeyEnum.SETTING]) {
+        setAiMode(Boolean(changes[StorageKeyEnum.SETTING].newValue?.aiAutoGroupEnabled));
+      }
+    };
+    chrome.storage.onChanged.addListener(onChange);
+    return () => { cancelled = true; chrome.storage.onChanged.removeListener(onChange); };
+  }, []);
+
+  const changeMode = async (enabled: boolean) => {
+    const previous = aiMode;
+    setAiMode(enabled);
+    setModeSaving(true);
+    if (enabled) closeEditor();
+    try {
+      if (canUseStorage()) {
+        const current = await chrome.storage.sync.get(StorageKeyEnum.SETTING);
+        await chrome.storage.sync.set({ [StorageKeyEnum.SETTING]: {
+          ...current[StorageKeyEnum.SETTING], aiAutoGroupEnabled: enabled,
+        } });
+      }
+      reloadConfig(null);
+    } catch {
+      setAiMode(previous);
+      message.error(t('aiApiSaveError'));
+    } finally { setModeSaving(false); }
+  };
+
   const actions = (
     <>
       <Button icon={<ReloadOutlined />} onClick={() => {
@@ -325,42 +368,71 @@ const Rules: React.FC = () => {
   );
 
   return (
-    <section className="popup-screen rules-screen">
-      <PageHeader title={t('tabRules')} subtitle={t('rulesDescription')} actions={actions} />
+    <section className={`popup-screen rules-screen grouping-mode-${aiMode ? 'ai' : 'custom'}`} aria-busy={modeLoading}>
+      <PageHeader title={t('tabRules')} subtitle={t('rulesDescription')} actions={aiMode ? <AiRegroupAllButton active={!modeLoading && !modeSaving} /> : actions} />
 
-      <div className="rules-list">
-        <div className="rules-list-header">
-          <span />
-          <span>{t('groupTitle')}</span>
-          <span>{t('matchMode')}</span>
-          <span>{t('matchContent')}</span>
-          <span>{t('groupColor')}</span>
-          <span>{t('actions')}</span>
+      <div className="grouping-mode-bar">
+        <div className="grouping-mode-copy">
+          <span className="grouping-mode-icon" aria-hidden="true">{aiMode ? <RobotOutlined /> : <AppstoreOutlined />}</span>
+          <div>
+            <strong>{t(aiMode ? 'groupingModeAi' : 'groupingModeCustom')}</strong>
+            <p>{t(aiMode ? 'groupingModeAiDescription' : 'groupingModeCustomDescription')}</p>
+          </div>
         </div>
-
-        <DndContext onDragEnd={onDragEnd} modifiers={[restrictToVerticalAxis]}>
-          <SortableContext
-            items={dataSource.map(item => item.ruleId)}
-            strategy={verticalListSortingStrategy}
-          >
-            <div className="rules-list-body screen-scroll">
-              {dataSource.map(rule => (
-                <SortableRuleRow
-                  key={rule.ruleId}
-                  rule={rule}
-                  onEdit={openEditor}
-                  onDelete={handleDelete}
-                />
-              ))}
-              {!dataSource.length && <div className="rules-empty">{t('noRules')}</div>}
-            </div>
-          </SortableContext>
-        </DndContext>
+        <div className="grouping-mode-control">
+          <Segmented
+            block
+            value={aiMode ? 'ai' : 'custom'}
+            disabled={modeLoading || modeSaving}
+            aria-label={t('groupingModeSwitch')}
+            options={[
+              { value: 'custom', label: t('groupingModeCustom') },
+              { value: 'ai', label: t('groupingModeAi') },
+            ]}
+            onChange={value => void changeMode(value === 'ai')}
+          />
+        </div>
       </div>
 
-      <div className="rules-hint">
-        <InfoCircleOutlined />
-        <span>{t('rulePriorityHint')}</span>
+      <div className="rules-custom-pane" hidden={aiMode}>
+        <div className="rules-list">
+          <div className="rules-list-header">
+            <span />
+            <span>{t('groupTitle')}</span>
+            <span>{t('matchMode')}</span>
+            <span>{t('matchContent')}</span>
+            <span>{t('groupColor')}</span>
+            <span>{t('actions')}</span>
+          </div>
+
+          <DndContext onDragEnd={onDragEnd} modifiers={[restrictToVerticalAxis]}>
+            <SortableContext
+              items={dataSource.map(item => item.ruleId)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="rules-list-body screen-scroll">
+                {dataSource.map(rule => (
+                  <SortableRuleRow
+                    key={rule.ruleId}
+                    rule={rule}
+                    onEdit={openEditor}
+                    onDelete={handleDelete}
+                  />
+                ))}
+                {!dataSource.length && <div className="rules-empty">{t('noRules')}</div>}
+              </div>
+            </SortableContext>
+          </DndContext>
+        </div>
+
+        <div className="rules-hint">
+          <InfoCircleOutlined />
+          <span>{t('rulePriorityHint')}</span>
+        </div>
+
+      </div>
+      <div className="rules-ai-pane" hidden={!aiMode}>
+        <AiSettings active={aiMode} />
       </div>
 
       <Drawer

@@ -11,9 +11,11 @@ import FileSaver from 'file-saver';
 import Logo from '@/assets/img/icon.svg';
 import PageHeader from '../PageHeader';
 import { StorageKeyEnum } from '@/common/const';
-import { openLink, reloadConfig } from '@/common';
-import { Language, useI18n } from '@/common/i18n';
+import { openLink } from '@/common';
+import { useI18n } from '@/common/i18n';
+import { chooseSettingsFile, importSettingsFile, openSettingsImportPage, SettingsTransferError } from '@/common/settingsTransfer';
 import type { ThemeMode } from '@/pages/Background/types';
+import type { ExtensionSurface } from '../index';
 import PackageJson from '../../../../package.json';
 import './style.less';
 
@@ -28,9 +30,12 @@ const isThemeMode = (value: unknown): value is ThemeMode => (
 
 export const About: React.FC<{
   onThemeModeChange: (themeMode: ThemeMode) => void;
-}> = ({ onThemeModeChange }) => {
+  surface: ExtensionSurface;
+}> = ({ onThemeModeChange, surface }) => {
   const { setLanguage, t } = useI18n();
   const [showChangeLog, setShowChangeLog] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importStatus, setImportStatus] = useState<{ error: boolean; text: string }>();
 
   const exportSetting = useCallback(async () => {
     const storage = canUseStorage()
@@ -42,38 +47,35 @@ export const About: React.FC<{
   }, [t]);
 
   const importSetting = useCallback(async () => {
-    const file = await new Promise<File | undefined>((resolve) => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.json';
-      input.onchange = event => {
-        const files = (event.target as HTMLInputElement).files;
-        resolve(files?.[0]);
-      };
-      input.click();
-    });
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async event => {
-      try {
-        const data = JSON.parse(event.target?.result as string);
-        if (canUseStorage()) await chrome.storage.sync.set(data);
-        const importedLanguage = data?.[StorageKeyEnum.SETTING]?.language as Language | undefined;
-        if (importedLanguage === 'zh-CN' || importedLanguage === 'en-US') {
-          setLanguage(importedLanguage);
-        }
-        const importedTheme = data?.[StorageKeyEnum.SETTING]?.theme;
-        if (isThemeMode(importedTheme)) {
-          onThemeModeChange(importedTheme);
-        }
-        reloadConfig(t('ruleUpdateSuccess'));
-      } catch (error) {
-        message.error(t('settingsImportFailed'));
+    if (importing) return;
+    setImporting(true);
+    setImportStatus(undefined);
+    try {
+      if (await openSettingsImportPage(surface, window.location.search)) return;
+      const file = await chooseSettingsFile();
+      if (!file) return;
+      const data = await importSettingsFile(file);
+      const importedLanguage = data.TA_SETTING?.language;
+      if (importedLanguage) setLanguage(importedLanguage);
+      const importedTheme = data.TA_SETTING?.theme;
+      if (isThemeMode(importedTheme)) onThemeModeChange(importedTheme);
+      const text = t('settingsImportSuccess');
+      setImportStatus({ error: false, text });
+      message.success(text);
+    } catch (error) {
+      let text = t('settingsImportFailed');
+      if (error instanceof SettingsTransferError) {
+        if (error.code === 'format' || error.code === 'regexp') text = t('settingsImportInvalidField', { field: error.field });
+        else if (error.code === 'json') text = t('settingsImportInvalidJson');
+        else if (error.code === 'size') text = t('settingsImportTooLarge');
+        else if (error.code === 'read') text = t('settingsImportReadFailed');
+        else if (error.code === 'save') text = t('settingsImportSaveFailed');
+        else if (error.code === 'apply') text = t('settingsImportApplyFailed');
       }
-    };
-    reader.readAsText(file);
-  }, [onThemeModeChange, setLanguage, t]);
+      setImportStatus({ error: true, text });
+      message.error(text);
+    } finally { setImporting(false); }
+  }, [importing, onThemeModeChange, setLanguage, surface, t]);
 
   return (
     <section className="popup-screen about-screen">
@@ -94,16 +96,18 @@ export const About: React.FC<{
             <Button icon={<ExportOutlined />} onClick={exportSetting}>
               {t('exportRulesSettings')}
             </Button>
-            <Button icon={<ImportOutlined />} onClick={importSetting}>
+            <Button icon={<ImportOutlined />} loading={importing} onClick={() => void importSetting()}>
               {t('importRulesSettings')}
             </Button>
           </div>
+          <p className="about-transfer-hint">{t(surface === 'popup' && new URLSearchParams(window.location.search).get('transfer') !== 'import' ? 'settingsImportOpenPageHint' : 'settingsImportPageHint')}</p>
+          {importStatus && <p className={`about-transfer-status${importStatus.error ? ' is-error' : ''}`} role={importStatus.error ? 'alert' : 'status'}>{importStatus.text}</p>}
         </div>
 
         <aside className="about-release-panel">
           <span className="about-release-label">{t('currentVersion')}</span>
           <strong>v{PackageJson.version}</strong>
-          <time dateTime="2026-10-11">2026-10-11</time>
+          <time dateTime="2026-10-24">2026-10-24</time>
 
           <Button
             type="link"
@@ -147,10 +151,26 @@ export const About: React.FC<{
             <span className="release-node" />
             <div className="release-heading">
               <div>
+                <h3>v1.7.0</h3>
+                <time>2026-10-24</time>
+              </div>
+              <span className="release-badge release-badge-current">{t('currentVersionBadge')}</span>
+            </div>
+            <h4>{t('newFeature').replace('：', '').replace(':', '')}</h4>
+            <ul>
+              <li>{t('changelog1701')}</li>
+              <li>{t('changelog1702')}</li>
+            </ul>
+          </section>
+
+          <section className="release-entry">
+            <span className="release-node" />
+            <div className="release-heading">
+              <div>
                 <h3>v1.6.0</h3>
                 <time>2026-10-11</time>
               </div>
-              <span className="release-badge release-badge-current">{t('currentVersionBadge')}</span>
+              <span className="release-badge">{t('newFeature').replace('：', '').replace(':', '')}</span>
             </div>
             <h4>{t('newFeature').replace('：', '').replace(':', '')}</h4>
             <ul>

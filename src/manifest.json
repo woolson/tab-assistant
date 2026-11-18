@@ -5,16 +5,34 @@
   "default_locale": "zh_CN",
   "minimum_chrome_version": "116",
   "permissions": [
+    "activeTab",
     "alarms",
+    "bookmarks",
+    "favicon",
+    "history",
+    "scripting",
     "sidePanel",
     "tabGroups",
     "storage",
-    "tabs"
+    "tabs",
+    "webNavigation"
+  ],
+  "optional_host_permissions": [
+    "<all_urls>"
   ],
   "action": {
     "default_popup": "popup.html",
     "default_title": "TabAssistant",
     "default_icon": "icon-34.png"
+  },
+  "commands": {
+    "toggle-quick-search": {
+      "suggested_key": {
+        "default": "Alt+Shift+K",
+        "mac": "Command+Shift+K"
+      },
+      "description": "__MSG_quickSearchCommand__"
+    }
   },
   "side_panel": {
     "default_path": "sidepanel.html"
@@ -26,6 +44,10 @@
     "128": "icon-128.png"
   },
   "web_accessible_resources": [
+    {
+      "resources": ["quick-search.html"],
+      "matches": ["http://*/*", "https://*/*", "file:///*"]
+    },
     {
       "resources": [
         "icon-128.png",

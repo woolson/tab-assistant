@@ -1,0 +1,222 @@
+/* Liquid glass layers. All backdrop-filter values are set inline from
+   liquid-glass.ts; tune the look with the custom properties below.
+
+   --lg-s           size factor for shadow and edge widths (1 = 60px pill)
+   --lg-shadow      shadow colour            --lg-shadow-o   its opacity
+   --lg-caustic     caustic colour           --lg-caustic-o  its opacity
+   --lg-underlay    white veil over the glass (0..1)
+   --lg-tint        base colour of the glass
+   --lg-glint-exp / --lg-glint-sat   lit caps
+   --lg-rim-exp   / --lg-rim-sat     unlit edge
+   --lg-spec        additive edge reflection
+   --lg-dark        0 = over light, 1 = over dark backgrounds. Set it in
+                    one step: changing it on every frame repaints the glass
+                    on every frame, which flickers in Chromium on a real
+                    display. To animate the switch, crossfade two covers
+                    (addCover in liquid-glass.ts).
+
+   No isolation, filter, opacity, mask or will-change on the host or any of
+   its ancestors: each of those makes a backdrop root and the glass then
+   refracts only itself instead of the page. Same for overflow: hidden, which
+   cuts off the reflection overhang. */
+
+/* Zero specificity: any position or custom property the page sets on the
+   host wins. Everything that differs between the light and the dark tuning
+   is a mix by --lg-dark. */
+:where(.lg-host, .lg-cover) {
+  --lg-r: 30px;
+  --lg-dark: 0;
+  --lg-spec: calc(0.13 + 0.25 * var(--lg-dark));
+  --lg-glint-exp: calc(1.35 + 0.1 * var(--lg-dark));
+  --lg-glint-sat: calc(3.1 - 1.1 * var(--lg-dark));
+  --lg-rim-exp: calc(0.84 + 0.41 * var(--lg-dark));
+  --lg-rim-sat: calc(2.2 - 0.9 * var(--lg-dark));
+  /* A dark shadow only muddies the glass over dark content, and the veil
+     drops to a trace; the additive parts carry it there. */
+  --lg-underlay: calc(0.14 - 0.11 * var(--lg-dark));
+  --lg-shadow-o: calc(0.35 * (1 - var(--lg-dark)));
+  --lg-caustic-o: calc(0.7 * (1 - var(--lg-dark)));
+}
+
+:where(.lg-host) {
+  position: relative;
+}
+
+/* Veil and edge light, laid over the host by liquid-glass.ts. */
+.lg-cover {
+  pointer-events: none;
+}
+
+.lg-host[data-lg-dark] + .lg-cover {
+  --lg-dark: 1;
+}
+
+/* The shadow: a blurred copy of the outline, not the fill, and an element
+   instead of box-shadow so it sits BEHIND the glass and gets refracted. */
+.lg-host::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-sizing: border-box;
+  pointer-events: none;
+  border: calc(7px * var(--lg-s, 1)) solid var(--lg-shadow, oklch(0.24 0.05 236.8));
+  transform: translateY(calc(26px * var(--lg-s, 1))) scaleX(0.93);
+  filter: blur(calc(17px * var(--lg-s, 1)));
+  opacity: var(--lg-shadow-o, 0.35);
+}
+
+/* Content of the host sits above every glass layer. */
+.lg-host > :where(:not(.lg-layer, .lg-defs)) {
+  position: relative;
+  z-index: 2;
+}
+
+.lg-layer {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* A near-invisible fill as page content right under the glass, positioned
+   by liquid-glass.ts; refresh() toggles its alpha between 1/255 and 2/255 so
+   Chromium sees a change under the glass and redraws it. Alpha, not opacity:
+   opacity 1 vs < 1 also toggles a stacking context. */
+.lg-tick {
+  pointer-events: none;
+  background: rgb(128 128 128 / 0.004);
+}
+
+.lg-tick[data-tick] {
+  background: rgb(128 128 128 / 0.008);
+}
+
+/* Must not be display: none, or Chromium does not resolve the filters. */
+.lg-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* No border-radius, transform or will-change: the mask cuts the shape, and a
+   compositor layer here would become the backdrop of the layers above it. */
+.lg-reflect {
+  z-index: 1;
+  border-radius: 0;
+}
+
+/* Light bundled under the lens. Blur outside, angular mask inside: filter
+   runs before mask, so the other way round the blur would be cut sharp. */
+.lg-caustic {
+  transform: translateY(calc(12px * var(--lg-s, 1))) scale(0.86);
+  filter: blur(calc(10px * var(--lg-s, 1)));
+}
+
+.lg-caustic-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-sizing: border-box;
+  border: calc(9px * var(--lg-s, 1)) solid var(--lg-caustic, #fff);
+  opacity: var(--lg-caustic-o, 0.7);
+  mask-image:
+    radial-gradient(70% 120% at 78% 0%, rgb(0 0 0 / 0.58) 0%, rgb(0 0 0 / 0.42) 35%, rgb(0 0 0 / 0.18) 62%, transparent 85%),
+    radial-gradient(70% 120% at 22% 100%, rgb(0 0 0 / 0.58) 0%, rgb(0 0 0 / 0.42) 35%, rgb(0 0 0 / 0.18) 62%, transparent 85%),
+    linear-gradient(rgb(0 0 0 / 0.4) 0 0);
+  mask-composite: add, add;
+}
+
+/* The pane: the only layer that displaces. */
+.lg-pane {
+  transform: translateZ(0);
+  background-image: linear-gradient(var(--lg-tint, transparent), var(--lg-tint, transparent));
+}
+
+/* Edge layers: a ring that softens inwards, built from four side gradients
+   and four corner gradients (add), then cut by an angular gradient
+   (intersect) that picks which part of the edge this layer owns. */
+.lg-edge {
+  z-index: 1;
+  transform: translateZ(0);
+  --w: calc(var(--lg-rim-w, 0.7px) * var(--lg-s, 1));
+  --d: calc(var(--lg-rim-fade, 2px) * var(--lg-s, 1));
+  --r: var(--lg-r);
+  mask-image:
+    var(--lg-arc),
+    linear-gradient(to bottom, #000 var(--w), transparent var(--d)),
+    linear-gradient(to top, #000 var(--w), transparent var(--d)),
+    linear-gradient(to right, #000 var(--w), transparent var(--d)),
+    linear-gradient(to left, #000 var(--w), transparent var(--d)),
+    radial-gradient(circle var(--r) at 100% 100%, transparent calc(var(--r) - var(--d)), #000 calc(var(--r) - var(--w))),
+    radial-gradient(circle var(--r) at 0 100%, transparent calc(var(--r) - var(--d)), #000 calc(var(--r) - var(--w))),
+    radial-gradient(circle var(--r) at 100% 0, transparent calc(var(--r) - var(--d)), #000 calc(var(--r) - var(--w))),
+    radial-gradient(circle var(--r) at 0 0, transparent calc(var(--r) - var(--d)), #000 calc(var(--r) - var(--w)));
+  /* Sides cover only the straight runs and corners only their quarter, so
+     they meet at the tangent instead of overlapping into a kink. */
+  mask-size:
+    auto,
+    calc(100% - 2 * var(--r)) 100%,
+    calc(100% - 2 * var(--r)) 100%,
+    100% calc(100% - 2 * var(--r)),
+    100% calc(100% - 2 * var(--r)),
+    var(--r) var(--r), var(--r) var(--r), var(--r) var(--r), var(--r) var(--r);
+  mask-position:
+    0 0,
+    var(--r) 0,
+    var(--r) 100%,
+    0 var(--r),
+    100% var(--r),
+    0 0, 100% 0, 0 100%, 100% 100%;
+  mask-repeat: no-repeat;
+  /* Nine values for nine layers -- a shorter list repeats cyclically. */
+  mask-composite: intersect, add, add, add, add, add, add, add, add;
+}
+
+/* Once the size has settled the ring comes from one image (ringMask in
+   liquid-glass.ts): the tiles above meet at fractional pixels, where both
+   are antialiased and their coverage no longer adds up to one, which shows
+   as a hairline across the rim at every tile boundary. */
+.lg-edge[data-ring] {
+  mask-image: var(--lg-arc), var(--lg-ring);
+  mask-size: auto, 100% 100%;
+  mask-position: 0 0, 0 0;
+  mask-composite: intersect, add;
+}
+
+/* The fold: brightens and saturates the whole folding band, not just the
+   thin rim, so the folded image reads as the same material. */
+.lg-fold {
+  --lg-arc: linear-gradient(#000 0 0);
+  --w: 0px;
+  --d: calc(var(--lg-r) * var(--lg-fold-k, 0.39));
+}
+
+.lg-glint {
+  --lg-arc: var(--lg-arc-glint);
+}
+
+.lg-rim {
+  --lg-arc: var(--lg-arc-rim);
+}
+
+/* Additive reflection of the light source, so the edge survives on black.
+   No mix-blend-mode: it would turn the host into a backdrop root. */
+.lg-spec {
+  background: rgb(255 255 255 / var(--lg-spec, 0.13));
+  --lg-arc: var(--lg-arc-glint);
+}
+
+/* Above the finished glass (it lives in the cover), so the edge filters do
+   not see it. */
+.lg-underlay {
+  z-index: 1;
+  background-color: rgb(255 255 255 / var(--lg-underlay, 0.14));
+}
+
+/* Shortcut for a host that always sits over dark content. */
+.lg-host[data-lg-dark] {
+  --lg-dark: 1;
+}

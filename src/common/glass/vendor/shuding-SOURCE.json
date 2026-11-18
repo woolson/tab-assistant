@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/shuding/liquid-glass",
+  "source": "https://raw.githubusercontent.com/shuding/liquid-glass/main/liquid-glass.js",
+  "license": "MIT",
+  "copyright": "Copyright (c) 2025 Shu Ding",
+  "retrieved": "2026-11-18",
+  "adapted_in": ["../shader.ts", "../liquidSurface.ts"]
+}

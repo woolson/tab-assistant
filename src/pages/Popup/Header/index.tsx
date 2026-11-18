@@ -1,30 +1,41 @@
 import React from 'react';
 import {
   AppstoreOutlined,
+  FileTextOutlined,
   FolderOpenOutlined,
   InfoCircleOutlined,
   InsertRowRightOutlined,
   SettingOutlined,
+  SearchOutlined,
 } from '@ant-design/icons';
+import { message } from 'antd';
+import { QUICK_SEARCH_TOGGLE, requestQuickSearch } from '@/common/quickSearch';
 import Logo from '@/assets/img/icon.svg';
 import SidebarTexture from '@/assets/img/ui/sidebar-aurora.png';
 import SidePanelTexture from '@/assets/img/ui/sidepanel-aurora.jpg';
 import { useI18n } from '@/common/i18n';
 
-export type PopupPageKey = 'tabOverview' | 'rules' | 'setting' | 'about';
+export type PopupPageKey = 'tabOverview' | 'rules' | 'setting' | 'logs' | 'about';
 
 interface HeaderProps {
   activeKey: PopupPageKey;
   onChange: (key: PopupPageKey) => void;
   surface?: 'popup' | 'sidepanel';
+  showDecisionLog?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   activeKey,
   onChange,
   surface = 'popup',
+  showDecisionLog = false,
 }) => {
   const { t } = useI18n();
+  const quickSearch = () => {
+    void requestQuickSearch(QUICK_SEARCH_TOGGLE).then(response => {
+      if (!response.ok) message.error(t('quickSearchUnavailable'));
+    }).catch(() => message.error(t('quickSearchUnavailable')));
+  };
   const openSidePanel = () => {
     void chrome.sidePanel
       .open({ windowId: chrome.windows.WINDOW_ID_CURRENT })
@@ -34,6 +45,7 @@ export const Header: React.FC<HeaderProps> = ({
     { key: 'tabOverview' as const, label: t('navTabs'), icon: <FolderOpenOutlined /> },
     { key: 'rules' as const, label: t('navRules'), icon: <AppstoreOutlined /> },
     { key: 'setting' as const, label: t('navSettings'), icon: <SettingOutlined /> },
+    ...(showDecisionLog ? [{ key: 'logs' as const, label: t('navLogs'), icon: <FileTextOutlined /> }] : []),
     { key: 'about' as const, label: t('navAbout'), icon: <InfoCircleOutlined /> },
   ];
 
@@ -65,6 +77,9 @@ export const Header: React.FC<HeaderProps> = ({
             <img src={Logo} alt="" className="sidepanel-brand-logo" />
             <span>TabAssistant</span>
           </div>
+          <button type="button" className="sidepanel-quick-search" onClick={quickSearch} title={t('quickSearchTitle')} aria-label={t('quickSearchTitle')}>
+            <SearchOutlined />
+          </button>
         </div>
 
         {navigation}

@@ -1,3 +1,5 @@
+import type { AiApiConfig } from "../../common/aiApi"
+import type { QuickSearchMaterial } from '../../common/quickSearchAppearance'
 export type GroupColorEnum = chrome.tabGroups.ColorEnum
 export type Language = 'zh-CN' | 'en-US'
 export type ThemeMode = 'system' | 'light' | 'dark'
@@ -43,6 +45,7 @@ export interface Groups {
 
 /** 配置项 */
 export interface TabAssistantConfig {
+  aiApi?: AiApiConfig
   /** 分组规则 */
   rules: RuleItem[]
   /** 给域名设置别名 */
@@ -66,6 +69,10 @@ export interface TabAssistantConfig {
      * 弹窗界面主题
      */
     theme?: ThemeMode
+    /** 快捷搜索材质及玻璃背景参数。 */
+    quickSearchMaterial?: QuickSearchMaterial
+    quickSearchTransparency?: number
+    quickSearchBlur?: number
     /**
      * 点击浏览器工具栏图标时打开的界面
      */
@@ -78,5 +85,16 @@ export interface TabAssistantConfig {
      * 标签页闲置多少分钟后自动关闭
      */
     autoCloseMinutes?: number
+    /**
+     * 使用配置的 AI API 按任务分组。默认关闭。
+     */
+    aiAutoGroupEnabled?: boolean
+    /** 记录 AI 分组决策并显示日志页面。默认关闭。 */
+    decisionLogEnabled?: boolean
+    /**
+     * 记录新标签页是从页面上哪个元素点开的，作为分组的额外依据。
+     * 需要用户额外授予网站访问权限，默认关闭。
+     */
+    rememberClickSource?: boolean
   }
 }

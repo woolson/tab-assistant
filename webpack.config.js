@@ -42,6 +42,9 @@ const ALL_ENTRY = {
   // options: path.join(__dirname, 'src', 'pages', 'Options', 'index.tsx'),
   popup: path.join(__dirname, 'src', 'pages', 'Popup', 'bootstrap.ts'),
   background: path.join(__dirname, 'src', 'pages', 'Background', 'index.ts'),
+  contentScript: path.join(__dirname, 'src', 'pages', 'ContentScript', 'index.ts'),
+  quickSearch: path.join(__dirname, 'src', 'pages', 'QuickSearch', 'index.tsx'),
+  glassRuntime: path.join(__dirname, 'src', 'pages', 'ContentScript', 'glassRuntime.ts'),
   // contentScript: path.join(__dirname, 'src', 'pages', 'Content', 'index.ts'),
   // devtools: path.join(__dirname, 'src', 'pages', 'Devtools', 'index.ts'),
   // panel: path.join(__dirname, 'src', 'pages', 'Panel', 'index.tsx'),
@@ -61,9 +64,11 @@ var options = {
   },
   module: {
     rules: [
+      { test: /\.css$/, resourceQuery: /raw/, type: 'asset/source' },
       {
         // look for .css or .scss files
         test: /\.(css|less)$/,
+        resourceQuery: { not: [/raw/] },
         // in the `src` directory
         use: [
           {
@@ -125,6 +130,14 @@ var options = {
     new webpack.EnvironmentPlugin(['NODE_ENV']),
     new CopyWebpackPlugin({
       patterns: [
+        {
+          from: 'src/common/glass/vendor/LICENSE',
+          to: 'third-party-licenses/nordify-liquid-glass.txt',
+        },
+        {
+          from: 'src/common/glass/vendor/shuding-LICENSE',
+          to: 'third-party-licenses/shuding-liquid-glass.txt',
+        },
         {
           from: 'src/manifest.json',
           to: path.join(__dirname, 'build'),
@@ -200,6 +213,12 @@ var options = {
       template: path.join(__dirname, 'src', 'pages', 'SidePanel', 'index.html'),
       filename: 'sidepanel.html',
       chunks: ['popup'],
+      cache: false,
+    }),
+    new HtmlWebpackPlugin({
+      template: path.join(__dirname, 'src', 'pages', 'QuickSearch', 'index.html'),
+      filename: 'quick-search.html',
+      chunks: ['quickSearch'],
       cache: false,
     }),
     // new HtmlWebpackPlugin({
