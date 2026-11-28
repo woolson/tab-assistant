@@ -162,7 +162,10 @@
     .palette-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 6px; min-height: 38px; padding: 6px 14px; border-top: .5px solid var(--demo-line); background: linear-gradient(180deg, rgba(255, 255, 255, .04), rgba(223, 234, 255, .07)); color: var(--demo-muted); font-size: 10px; }
     .sample-search { min-height: 24px; margin-right: -5px; padding-inline: 5px; color: #cfdef6; font-size: 10px; }
     @supports (corner-shape: squircle) {
-      .demo-stage, .demo-stage :is(.app-window, .sidebar-item, .demo-group, .palette, .palette-filters button, .result, .result-icon, kbd, .sample-search) { corner-shape: squircle; }
+      .skip, .button, .language-switch,
+      .demo-stage, .demo-stage :is(.app-window, .sidebar-item, .demo-group, .palette, .palette input, .palette-filters button, .result, .result-icon, kbd, .sample-search),
+      .update-card, .feature, .privacy, .install { corner-shape: squircle; }
+      .sidebar-item::before { corner-shape: inherit; }
     }
 
     h2 { font-size: clamp(1.7rem, 3.3vw, 2.62rem); line-height: 1.22; font-weight: 750; letter-spacing: -.048em; }
